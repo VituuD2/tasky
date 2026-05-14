@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/auth/actions";
+import { TaskyLogo } from "@/components/tasky-logo";
 import { isAdmin } from "@/lib/permissions";
 import type { Profile } from "@/types/tasky";
 
@@ -24,8 +25,8 @@ export function AppShell({ profile, active, children }: AppShellProps) {
       <div className="grid min-h-screen grid-cols-1 md:grid-cols-[248px_1fr]">
         <aside className="border-b border-white/10 bg-[#111113]/95 px-4 py-5 backdrop-blur md:border-b-0 md:border-r">
           <div className="mb-8 flex items-center justify-between">
-            <Link href="/" className="text-lg font-semibold tracking-[-0.03em]">
-              Tasky
+            <Link href="/" className="text-stone-100 transition hover:text-white" aria-label="Tasky">
+              <TaskyLogo className="h-8 w-auto max-w-32" />
             </Link>
             <span className="rounded border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
               {profile?.role ?? "user"}

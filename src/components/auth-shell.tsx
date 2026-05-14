@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ChartNoAxesColumnIncreasing, FileSearch, Wrench } from "lucide-react";
 import { RotatingWord } from "@/components/rotating-word";
+import { TaskyLogo } from "@/components/tasky-logo";
 
 type AuthShellProps = {
   title: string;
@@ -29,9 +30,7 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
         <div className="grid w-full gap-12 md:grid-cols-[1fr_420px] md:items-center lg:gap-20">
           <div className="hidden md:block">
-            <p className="mb-5 text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
-              TASKY
-            </p>
+            <TaskyLogo className="mb-6 h-10 w-auto text-stone-100" />
             <h1 className="max-w-xl text-4xl font-semibold tracking-[-0.03em] text-stone-100">
               Uma base única para erros, <RotatingWord words={["evidências", "impactos", "correções"]}/>
             </h1>
@@ -48,9 +47,7 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
           </div>
 
           <div className="glass-panel w-full px-6 py-7">
-            <p className="mb-8 text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
-              Tasky
-            </p>
+            <TaskyLogo className="mb-8 h-7 w-auto text-stone-100" />
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-stone-100">{title}</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>
             <div className="mt-8">{children}</div>

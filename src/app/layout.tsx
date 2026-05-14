@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tasky",
+  icons: {
+    icon: "/tasky-icon.svg",
+  },
   description: "Catálogo interno de erros operacionais.",
 };
 
