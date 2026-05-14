@@ -52,7 +52,7 @@ export async function signUp(_state: AuthState, formData: FormData): Promise<Aut
   const fullName = getString(formData, "full_name");
 
   if (!email || !password || !passwordConfirmation) {
-    return { message: "Informe email, senha e confirmacao de senha." };
+    return { message: "Informe email, senha e confirmação de senha." };
   }
 
   if (password.length < 6) {
@@ -60,7 +60,7 @@ export async function signUp(_state: AuthState, formData: FormData): Promise<Aut
   }
 
   if (password !== passwordConfirmation) {
-    return { message: "As senhas nao conferem." };
+    return { message: "As senhas não conferem." };
   }
 
   const supabase = await createClient();

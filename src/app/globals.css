@@ -121,6 +121,22 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(244, 241, 234, 0.22);
 }
 
+@keyframes wordFade {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  12%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
 .glass-panel {
   background: var(--panel);
   border: 1px solid var(--line);

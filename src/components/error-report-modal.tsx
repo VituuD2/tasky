@@ -46,7 +46,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
     [profiles],
   );
   const reportedByOptions = useMemo(
-    () => [...profileOptions, { value: "__create", label: "+ Criar usuario/pessoa" }],
+    () => [...profileOptions, { value: "__create", label: "+ Criar usuário/pessoa" }],
     [profileOptions],
   );
   const happenedBeforeOptions = useMemo(
@@ -104,7 +104,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
           </div>
 
           <label>
-            <FieldLabel>Descricao</FieldLabel>
+              <FieldLabel>Descrição</FieldLabel>
             <RichTextArea name="description" defaultValue={report?.description} />
           </label>
 
@@ -181,7 +181,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
                 name="responsible_profile_id"
                 defaultValue={report?.responsible_profile_id ?? ""}
                 options={profileOptions}
-                placeholder="Sem responsavel"
+                placeholder="Sem responsável"
               />
             </label>
             <label>
@@ -194,12 +194,12 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
               />
             </label>
             <label>
-              <FieldLabel>Ja aconteceu</FieldLabel>
+              <FieldLabel>Já aconteceu</FieldLabel>
               <DarkSelect
                 name="happened_before"
                 defaultValue={report?.happened_before === null ? "" : String(report?.happened_before ?? "")}
                 options={happenedBeforeOptions}
-                placeholder="Nao informado"
+                placeholder="Não informado"
               />
             </label>
           </div>
@@ -212,7 +212,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
           ) : null}
 
           <label>
-            <FieldLabel>Acao corretiva</FieldLabel>
+            <FieldLabel>Ação corretiva</FieldLabel>
             <RichTextArea name="corrective_action" defaultValue={report?.corrective_action} />
           </label>
 

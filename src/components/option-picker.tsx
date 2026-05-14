@@ -146,7 +146,7 @@ export function OptionPicker({
     const label = draftLabel.trim();
 
     if (!label) {
-      setMessage("Informe o nome da opcao.");
+      setMessage("Informe o nome da opção.");
       return;
     }
 
@@ -277,9 +277,9 @@ export function OptionPicker({
                       className="h-8 min-w-0 flex-1 cursor-text rounded border border-white/10 bg-white/[0.04] px-2 text-xs text-stone-100 outline-none focus:border-stone-300/40"
                       value={draftLabel}
                       onChange={(event) => setDraftLabel(event.target.value)}
-                      placeholder="+ Criar opcao"
+                      placeholder="+ Criar opção"
                     />
-                    <ColorInput label="Cor da nova opcao" value={draftColor} onChange={setDraftColor} />
+                    <ColorInput label="Cor da nova opção" value={draftColor} onChange={setDraftColor} />
                     <button
                       className="cursor-pointer rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.06]"
                       disabled={isPending}

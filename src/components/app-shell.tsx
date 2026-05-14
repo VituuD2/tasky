@@ -16,7 +16,7 @@ export function AppShell({ profile, active, children }: AppShellProps) {
   const links = [
     { key: "database", href: "/", label: "Database", show: true },
     { key: "export", href: "/export", label: "Exportar", show: true },
-    { key: "admin", href: "/admin", label: "Configuracoes", show: hasAdminAccess },
+    { key: "admin", href: "/admin", label: "Configurações", show: hasAdminAccess },
   ] as const;
 
   return (

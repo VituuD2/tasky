@@ -29,15 +29,15 @@ function parseFilters(formData: FormData): ExportFilters | { error: string } {
   const errorDateTo = toRaw ? parseBrazilianDate(toRaw) : undefined;
 
   if (fromRaw && !errorDateFrom) {
-    return { error: "Periodo inicial invalido. Use dd/mm/aaaa." };
+    return { error: "Período inicial inválido. Use dd/mm/aaaa." };
   }
 
   if (toRaw && !errorDateTo) {
-    return { error: "Periodo final invalido. Use dd/mm/aaaa." };
+    return { error: "Período final inválido. Use dd/mm/aaaa." };
   }
 
   if (errorDateFrom && errorDateTo && errorDateTo < errorDateFrom) {
-    return { error: "Periodo final nao pode ser anterior ao inicial." };
+    return { error: "O período final não pode ser anterior ao inicial." };
   }
 
   return {
@@ -56,7 +56,7 @@ export async function exportReports(formData: FormData): Promise<ExportResult> {
 
   const format = getString(formData, "format") as ExportFormat;
   if (format !== "csv" && format !== "json") {
-    return { ok: false, message: "Formato de exportacao invalido." };
+    return { ok: false, message: "Formato de exportação inválido." };
   }
 
   const filters = parseFilters(formData);
@@ -121,7 +121,7 @@ export async function exportReports(formData: FormData): Promise<ExportResult> {
       "ID",
       "UUID",
       "Titulo",
-      "Descricao",
+      "Descrição",
       "Data do erro",
       "Area afetada",
       "Tipo de erro",
@@ -132,8 +132,8 @@ export async function exportReports(formData: FormData): Promise<ExportResult> {
       "Responsavel",
       "Aberto em",
       "Resolvido em",
-      "Ja aconteceu",
-      "Acao corretiva",
+      "Já aconteceu",
+      "Ação corretiva",
       "Reportado por",
       "Criado por",
       "Criado em",

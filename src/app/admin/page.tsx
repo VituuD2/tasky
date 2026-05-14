@@ -13,7 +13,7 @@ export default async function AdminPage() {
       <AppShell profile={profile} active="database">
         <EmptyState
           title="Acesso restrito"
-          description="Configuracoes administrativas estao disponiveis apenas para usuarios admin."
+          description="Configurações administrativas estão disponíveis apenas para usuários admin."
         />
       </AppShell>
     );
@@ -32,7 +32,7 @@ export default async function AdminPage() {
   if (data.error) {
     return (
       <AppShell profile={profile} active="admin">
-        <EmptyState title="Nao foi possivel carregar configuracoes" description={data.error} />
+        <EmptyState title="Não foi possível carregar as configurações" description={data.error} />
       </AppShell>
     );
   }

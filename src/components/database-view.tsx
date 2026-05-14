@@ -89,9 +89,9 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
     <>
       <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Catalogo de erros</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Catálogo de erros</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Database</h1>
-          <p className="mt-2 text-sm text-zinc-400">{reports.length} registros visiveis</p>
+          <p className="mt-2 text-sm text-zinc-400">{reports.length} registros visíveis</p>
         </div>
         <button className={buttonClass} onClick={() => setOpenReport("new")} type="button">
           Novo erro
@@ -138,13 +138,13 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
               ))
             ) : (
               <div className="p-4">
-                <EmptyState title="Nenhum erro cadastrado" description="Crie o primeiro registro para iniciar o catalogo." />
+            <EmptyState title="Nenhum erro cadastrado" description="Crie o primeiro registro para iniciar o catálogo." />
               </div>
             )}
           </div>
         ) : (
           <div className="p-4">
-            <EmptyState title="Sem colunas visiveis" description="Um admin pode reativar colunas nas configuracoes." />
+            <EmptyState title="Sem colunas visíveis" description="Um admin pode reativar colunas nas configurações." />
           </div>
         )}
       </div>

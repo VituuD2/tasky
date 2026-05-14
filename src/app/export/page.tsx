@@ -18,7 +18,7 @@ export default async function ExportPage() {
   if (data.error) {
     return (
       <AppShell profile={profile} active="export">
-        <EmptyState title="Nao foi possivel carregar filtros" description={data.error} />
+        <EmptyState title="Não foi possível carregar os filtros" description={data.error} />
       </AppShell>
     );
   }

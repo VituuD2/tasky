@@ -57,7 +57,7 @@ export function AuthForm({ mode, action, notice }: AuthFormProps) {
           required
           minLength={6}
           className="h-11 w-full border border-white/10 bg-white/[0.035] px-3 text-sm text-stone-100 outline-none transition focus:border-stone-300/40 focus:bg-white/[0.06]"
-          placeholder="Minimo de 6 caracteres"
+          placeholder="Mínimo de 6 caracteres"
         />
       </label>
 
@@ -99,7 +99,7 @@ export function AuthForm({ mode, action, notice }: AuthFormProps) {
       </button>
 
       <p className="text-center text-sm text-zinc-500">
-        {isSignup ? "Ja tem conta?" : "Ainda nao tem conta?"}{" "}
+        {isSignup ? "Já tem conta?" : "Ainda não tem conta?"}{" "}
         <Link className="text-stone-200 underline-offset-4 hover:underline" href={isSignup ? "/login" : "/signup"}>
           {isSignup ? "Entrar" : "Criar conta"}
         </Link>

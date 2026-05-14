@@ -29,27 +29,27 @@ function validateRequiredFields(payload: {
   openedAt: string | null;
 }) {
   if (!payload.title) {
-    return "Titulo obrigatorio.";
+    return "Título obrigatório.";
   }
 
   if (!payload.affectedArea) {
-    return "Area afetada obrigatoria.";
+    return "Área afetada obrigatória.";
   }
 
   if (!payload.errorType) {
-    return "Tipo de erro obrigatorio.";
+    return "Tipo de erro obrigatório.";
   }
 
   if (!payload.severity) {
-    return "Severidade obrigatoria.";
+    return "Severidade obrigatória.";
   }
 
   if (!payload.status) {
-    return "Status obrigatorio.";
+    return "Status obrigatório.";
   }
 
   if (!payload.openedAt) {
-    return "Data de abertura obrigatoria.";
+    return "Data de abertura obrigatória.";
   }
 
   return null;
@@ -86,23 +86,23 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
   }
 
   if (getString(formData, "opened_at") && !openedAt) {
-    return { ok: false, message: "Data de abertura invalida. Use dd/mm/aaaa." };
+    return { ok: false, message: "Data de abertura inválida. Use dd/mm/aaaa." };
   }
 
   if (getString(formData, "error_date") && !errorDate) {
-    return { ok: false, message: "Data do erro invalida. Use dd/mm/aaaa." };
+    return { ok: false, message: "Data do erro inválida. Use dd/mm/aaaa." };
   }
 
   if (getString(formData, "resolved_at") && !resolvedAt) {
-    return { ok: false, message: "Data de resolucao invalida. Use dd/mm/aaaa." };
+    return { ok: false, message: "Data de resolução inválida. Use dd/mm/aaaa." };
   }
 
   if (financialImpactRaw && financialImpact === null) {
-    return { ok: false, message: "Impacto financeiro invalido." };
+    return { ok: false, message: "Impacto financeiro inválido." };
   }
 
   if (openedAt && resolvedAt && resolvedAt < openedAt) {
-    return { ok: false, message: "Data de resolucao nao pode ser anterior a abertura." };
+    return { ok: false, message: "A data de resolução não pode ser anterior à abertura." };
   }
 
   const basePayload = {

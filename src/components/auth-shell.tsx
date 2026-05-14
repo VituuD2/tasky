@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ChartNoAxesColumnIncreasing, FileSearch, Wrench } from "lucide-react";
+import { RotatingWord } from "@/components/rotating-word";
 
 type AuthShellProps = {
   title: string;
@@ -6,22 +8,40 @@ type AuthShellProps = {
   children: ReactNode;
 };
 
+const signals = [
+  {
+    label: "Evidências",
+    Icon: FileSearch,
+  },
+  {
+    label: "Impacto",
+    Icon: ChartNoAxesColumnIncreasing,
+  },
+  {
+    label: "Correção",
+    Icon: Wrench,
+  },
+];
+
 export function AuthShell({ title, description, children }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_32%),linear-gradient(135deg,#0b0b0c,#151517_48%,#080809)] px-5 py-8 text-stone-100">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <div className="grid w-full gap-8 md:grid-cols-[1fr_420px] md:items-center">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
+        <div className="grid w-full gap-12 md:grid-cols-[1fr_420px] md:items-center lg:gap-20">
           <div className="hidden md:block">
             <p className="mb-5 text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
-              Tasky
+              TASKY
             </p>
             <h1 className="max-w-xl text-4xl font-semibold tracking-[-0.03em] text-stone-100">
-              Registro interno de erros com contexto, dono e historico.
+              Uma base única para erros, <RotatingWord words={["evidências", "impactos", "correções"]}/>
             </h1>
-            <div className="mt-10 grid max-w-xl grid-cols-3 border border-white/10 bg-white/[0.025]">
-              {["Database", "Tags", "RLS"].map((item) => (
-                <div key={item} className="border-r border-white/10 px-4 py-4 last:border-r-0">
-                  <p className="text-sm text-stone-200">{item}</p>
+            <div className="mt-10 grid max-w-xl grid-cols-3 rounded-md border border-white/10 bg-white/[0.025]">
+              {signals.map(({ Icon, label }) => (
+                <div key={label} className="border-r border-white/10 px-4 py-4 last:border-r-0">
+                  <p className="flex items-center gap-2 text-sm text-stone-200">
+                    <Icon aria-hidden className="h-4 w-4 text-zinc-500" strokeWidth={1.8} />
+                    {label}
+                  </p>
                 </div>
               ))}
             </div>

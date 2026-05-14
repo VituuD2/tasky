@@ -27,7 +27,7 @@ export async function saveOption(formData: FormData): Promise<ActionResult> {
   const isActive = formData.get("is_active") === "on";
 
   if (!label) {
-    return { ok: false, message: "Label obrigatorio." };
+    return { ok: false, message: "Nome obrigatório." };
   }
 
   const payload = {
@@ -59,7 +59,7 @@ export async function updateProfileRole(formData: FormData): Promise<ActionResul
   const role = getString(formData, "role");
 
   if (role !== "admin" && role !== "user") {
-    return { ok: false, message: "Role invalida." };
+    return { ok: false, message: "Permissão inválida." };
   }
 
   if (profileId === user.id && role === "user") {
@@ -73,7 +73,7 @@ export async function updateProfileRole(formData: FormData): Promise<ActionResul
     }
 
     if ((count ?? 0) <= 1) {
-      return { ok: false, message: "Nao e possivel remover o ultimo admin." };
+      return { ok: false, message: "Não é possível remover o último admin." };
     }
   }
 

@@ -16,12 +16,12 @@ export function AdminView({ profiles }: AdminViewProps) {
     <div className="space-y-6">
       <header className="border-b border-white/10 pb-5">
         <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Admin</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Configuracoes</h1>
-        <p className="mt-2 text-sm text-zinc-400">Usuarios e roles.</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Configurações</h1>
+        <p className="mt-2 text-sm text-zinc-400">Usuários e permissões.</p>
       </header>
 
       <SectionPanel>
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">Usuarios e roles</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">Usuários e permissões</h2>
         <div className="mt-5 overflow-x-auto rounded-md border border-white/10">
           <div className="min-w-[720px] divide-y divide-white/10">
             {profiles.map((profile) => (
@@ -38,7 +38,7 @@ export function AdminView({ profiles }: AdminViewProps) {
                   <p className="mt-1 text-xs text-zinc-500">{profile.email}</p>
                 </div>
                 <label>
-                  <FieldLabel>Role</FieldLabel>
+                  <FieldLabel>Permissão</FieldLabel>
                   <DarkSelect
                     name="role"
                     defaultValue={profile.role}

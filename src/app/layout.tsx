@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tasky",
-  description: "Catalogo interno de erros operacionais.",
+  description: "Catálogo interno de erros operacionais.",
 };
 
 export default function RootLayout({

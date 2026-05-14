@@ -40,7 +40,7 @@ export default async function HomePage() {
   if (data.error) {
     return (
       <AppShell profile={profile} active="database">
-        <EmptyState title="Nao foi possivel carregar os registros" description={data.error} />
+        <EmptyState title="Não foi possível carregar os registros" description={data.error} />
       </AppShell>
     );
   }
