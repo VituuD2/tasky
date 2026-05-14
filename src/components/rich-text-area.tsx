@@ -11,6 +11,11 @@ type RichTextAreaProps = {
 };
 
 type Command = "bold" | "italic" | "code" | "codeblock" | "bullet" | "numbered" | "paragraph";
+type ActiveFormats = {
+  bold: boolean;
+  italic: boolean;
+  code: boolean;
+};
 
 function escapeHtml(value: string) {
   return value
@@ -32,10 +37,6 @@ function isEmptyHtml(value: string) {
   return value.replace(/<br\s*\/?>/gi, "").replace(/<[^>]*>/g, "").trim().length === 0;
 }
 
-function getSelectionText() {
-  return window.getSelection()?.toString() || "codigo";
-}
-
 export function RichTextArea({ name, defaultValue, initiallyEditing = false }: RichTextAreaProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
@@ -44,9 +45,45 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   const startingHtml = useMemo(() => initialHtml(defaultValue ?? ""), [defaultValue]);
   const [html, setHtml] = useState(startingHtml);
   const [isEditing, setIsEditing] = useState(initiallyEditing);
+  const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
+    bold: false,
+    italic: false,
+    code: false,
+  });
 
   function editorContains(node: Node) {
     return Boolean(editorRef.current && (node === editorRef.current || editorRef.current.contains(node)));
+  }
+
+  function nodeElement(node: Node | null) {
+    if (!node) {
+      return null;
+    }
+
+    return node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  }
+
+  function closestInsideEditor(node: Node | null, selector: string) {
+    const element = nodeElement(node);
+    const match = element?.closest(selector);
+
+    return match && editorRef.current?.contains(match) ? match : null;
+  }
+
+  function updateActiveFormats() {
+    const selection = window.getSelection();
+    const node = selection?.anchorNode ?? null;
+
+    if (!node || !editorContains(node)) {
+      setActiveFormats({ bold: false, italic: false, code: false });
+      return;
+    }
+
+    setActiveFormats({
+      bold: Boolean(closestInsideEditor(node, "strong,b")),
+      italic: Boolean(closestInsideEditor(node, "em,i")),
+      code: Boolean(closestInsideEditor(node, "code")),
+    });
   }
 
   function saveSelection() {
@@ -60,6 +97,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
 
     if (editorContains(range.commonAncestorContainer)) {
       selectionRef.current = range.cloneRange();
+      updateActiveFormats();
     }
   }
 
@@ -73,6 +111,64 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
 
     selection.removeAllRanges();
     selection.addRange(range);
+  }
+
+  function getSelectedRange() {
+    restoreSelection();
+
+    const selection = window.getSelection();
+
+    if (!selection?.rangeCount) {
+      return null;
+    }
+
+    const range = selection.getRangeAt(0);
+
+    return editorContains(range.commonAncestorContainer) ? range : null;
+  }
+
+  function selectNodeContents(node: Node) {
+    const selection = window.getSelection();
+
+    if (!selection) {
+      return;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    selectionRef.current = range.cloneRange();
+  }
+
+  function placeCaretAfter(node: Node) {
+    const selection = window.getSelection();
+
+    if (!selection) {
+      return;
+    }
+
+    const range = document.createRange();
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    selectionRef.current = range.cloneRange();
+  }
+
+  function unwrapElement(element: Element) {
+    const parent = element.parentNode;
+
+    if (!parent) {
+      return;
+    }
+
+    while (element.firstChild) {
+      parent.insertBefore(element.firstChild, element);
+    }
+
+    parent.removeChild(element);
+    parent.normalize();
   }
 
   function setHiddenValue(value: string) {
@@ -109,40 +205,169 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     setIsEditing(false);
   }
 
+  function wrapSelection(tagName: "strong" | "em") {
+    const range = getSelectedRange();
+
+    if (!range || range.collapsed) {
+      return;
+    }
+
+    const wrapper = document.createElement(tagName);
+    wrapper.appendChild(range.extractContents());
+    range.insertNode(wrapper);
+    selectNodeContents(wrapper);
+  }
+
+  function toggleInlineFormat(command: "bold" | "italic") {
+    const tagName = command === "bold" ? "strong" : "em";
+    const selector = command === "bold" ? "strong,b" : "em,i";
+    const range = getSelectedRange();
+
+    if (!range || range.collapsed) {
+      return;
+    }
+
+    const formattedAncestor = closestInsideEditor(range.commonAncestorContainer, selector);
+
+    if (formattedAncestor) {
+      unwrapElement(formattedAncestor);
+      syncDraft();
+      updateActiveFormats();
+      return;
+    }
+
+    wrapSelection(tagName);
+    syncDraft();
+    updateActiveFormats();
+  }
+
+  function insertInlineCode() {
+    const range = getSelectedRange();
+
+    if (!range || range.collapsed) {
+      return;
+    }
+
+    const code = document.createElement("code");
+    const formattedAncestor = closestInsideEditor(range.commonAncestorContainer, "code");
+
+    if (formattedAncestor) {
+      unwrapElement(formattedAncestor);
+      syncDraft();
+      updateActiveFormats();
+      return;
+    }
+
+    code.textContent = range.toString() || "codigo";
+    range.deleteContents();
+    range.insertNode(code);
+    selectNodeContents(code);
+    syncDraft();
+    updateActiveFormats();
+  }
+
+  function insertCodeBlock() {
+    const range = getSelectedRange();
+
+    if (!range) {
+      return;
+    }
+
+    const pre = document.createElement("pre");
+    const code = document.createElement("code");
+    code.textContent = range.toString() || "codigo";
+    pre.appendChild(code);
+
+    range.deleteContents();
+    range.insertNode(pre);
+    placeCaretAfter(pre);
+    syncDraft();
+    updateActiveFormats();
+  }
+
+  function insertList(ordered: boolean) {
+    const range = getSelectedRange();
+
+    if (!range) {
+      return;
+    }
+
+    const text = range.toString() || "Item";
+    const list = document.createElement(ordered ? "ol" : "ul");
+    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+
+    for (const line of lines.length ? lines : ["Item"]) {
+      const item = document.createElement("li");
+      item.textContent = line;
+      list.appendChild(item);
+    }
+
+    range.deleteContents();
+    range.insertNode(list);
+    placeCaretAfter(list);
+    syncDraft();
+    updateActiveFormats();
+  }
+
+  function wrapParagraph() {
+    const range = getSelectedRange();
+
+    if (!range || range.collapsed) {
+      return;
+    }
+
+    const paragraph = document.createElement("p");
+    paragraph.appendChild(range.extractContents());
+    range.insertNode(paragraph);
+    selectNodeContents(paragraph);
+    syncDraft();
+    updateActiveFormats();
+  }
+
+  function insertPlainText(text: string) {
+    const range = getSelectedRange();
+
+    if (!range) {
+      return;
+    }
+
+    const node = document.createTextNode(text);
+    range.deleteContents();
+    range.insertNode(node);
+    placeCaretAfter(node);
+    syncDraft();
+  }
+
   function runCommand(command: Command) {
     saveSelection();
     focusEditor();
 
     if (command === "bold") {
-      document.execCommand("bold");
+      toggleInlineFormat("bold");
     }
 
     if (command === "italic") {
-      document.execCommand("italic");
+      toggleInlineFormat("italic");
     }
 
     if (command === "bullet") {
-      document.execCommand("insertUnorderedList");
+      insertList(false);
     }
 
     if (command === "numbered") {
-      document.execCommand("insertOrderedList");
+      insertList(true);
     }
 
     if (command === "paragraph") {
-      document.execCommand("formatBlock", false, "p");
+      wrapParagraph();
     }
 
     if (command === "code") {
-      document.execCommand("insertHTML", false, `<code>${escapeHtml(getSelectionText())}</code>`);
+      insertInlineCode();
     }
 
     if (command === "codeblock") {
-      document.execCommand(
-        "insertHTML",
-        false,
-        `<pre><code>${escapeHtml(getSelectionText())}</code></pre><p><br></p>`,
-      );
+      insertCodeBlock();
     }
 
     requestAnimationFrame(syncDraft);
@@ -176,13 +401,17 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
 
     if (event.key === "Tab") {
       event.preventDefault();
-      document.execCommand("insertText", false, "  ");
-      requestAnimationFrame(syncDraft);
+      insertPlainText("  ");
     }
   }
 
-  const toolbarButtonClass =
-    "flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100";
+  function toolbarButtonClass(command?: keyof ActiveFormats) {
+    const isActive = command ? activeFormats[command] : false;
+
+    return isActive
+      ? "flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-stone-200 text-zinc-950 transition hover:bg-white"
+      : "flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100";
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-white/10 bg-white/[0.025] transition focus-within:border-stone-300/40">
@@ -194,7 +423,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
             <div className="flex flex-wrap items-center gap-1">
               <button
                 aria-label="Negrito"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass("bold")}
                 title="Negrito"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -204,7 +433,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Italico"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass("italic")}
                 title="Italico"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -214,7 +443,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Codigo"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass("code")}
                 title="Codigo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -224,7 +453,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Bloco de codigo"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass()}
                 title="Bloco de codigo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -235,7 +464,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               <span className="mx-1 h-5 w-px bg-white/10" />
               <button
                 aria-label="Lista"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass()}
                 title="Lista"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -245,7 +474,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Lista numerada"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass()}
                 title="Lista numerada"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -255,7 +484,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Paragrafo"
-                className={toolbarButtonClass}
+                className={toolbarButtonClass()}
                 title="Paragrafo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
