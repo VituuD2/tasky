@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatDate, parseBrazilianDate } from "@/lib/format";
 
@@ -54,7 +54,7 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
   const initialDisplay = defaultValue?.includes("-") ? formatDate(defaultValue) : defaultValue ?? "";
   const [value, setValue] = useState(initialDisplay);
   const [isOpen, setIsOpen] = useState(false);
-  const [menuRect, setMenuRect] = useState({ left: 0, top: 0 });
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const selectedDate = dateFromDisplay(value);
@@ -86,11 +86,24 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
     const rect = rootRef.current?.getBoundingClientRect();
 
     if (!rect) {
-      return;
+      return false;
     }
 
     setMenuRect({ left: rect.left, top: rect.bottom + 8 });
+    return true;
   }
+
+  function openMenu() {
+    if (updateMenuRect()) {
+      setIsOpen(true);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updateMenuRect();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -151,18 +164,25 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
         required={required}
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        onFocus={() => setIsOpen(true)}
+        onFocus={openMenu}
       />
       <button
         aria-label="Abrir calendario"
         className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded border border-white/10 text-zinc-400 transition hover:bg-white/[0.06] hover:text-stone-100"
         type="button"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          if (isOpen) {
+            setIsOpen(false);
+            return;
+          }
+
+          openMenu();
+        }}
       >
         <CalendarIcon />
       </button>
 
-      {isOpen
+      {isOpen && menuRect
         ? createPortal(
             <div
               ref={menuRef}
