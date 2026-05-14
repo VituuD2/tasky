@@ -38,10 +38,11 @@ function getSelectionText() {
 
 export function RichTextArea({ name, defaultValue, initiallyEditing = false }: RichTextAreaProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
   const selectionRef = useRef<Range | null>(null);
+  const draftHtmlRef = useRef("");
   const startingHtml = useMemo(() => initialHtml(defaultValue ?? ""), [defaultValue]);
   const [html, setHtml] = useState(startingHtml);
-  const [draftHtml, setDraftHtml] = useState(startingHtml);
   const [isEditing, setIsEditing] = useState(initiallyEditing);
 
   function editorContains(node: Node) {
@@ -74,9 +75,16 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     selection.addRange(range);
   }
 
+  function setHiddenValue(value: string) {
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = value;
+    }
+  }
+
   function syncDraft() {
-    setDraftHtml(editorRef.current?.innerHTML ?? "");
-    saveSelection();
+    const nextHtml = editorRef.current?.innerHTML ?? "";
+    draftHtmlRef.current = nextHtml;
+    setHiddenValue(nextHtml);
   }
 
   function focusEditor() {
@@ -85,7 +93,8 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   }
 
   function startEditing() {
-    setDraftHtml(html);
+    draftHtmlRef.current = html;
+    setHiddenValue(html);
     setIsEditing(true);
     requestAnimationFrame(() => {
       editorRef.current?.focus({ preventScroll: true });
@@ -93,13 +102,15 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   }
 
   function finishEditing() {
-    const nextHtml = editorRef.current?.innerHTML ?? draftHtml;
+    const nextHtml = editorRef.current?.innerHTML ?? draftHtmlRef.current;
+    draftHtmlRef.current = nextHtml;
+    setHiddenValue(nextHtml);
     setHtml(nextHtml);
-    setDraftHtml(nextHtml);
     setIsEditing(false);
   }
 
   function runCommand(command: Command) {
+    saveSelection();
     focusEditor();
 
     if (command === "bold") {
@@ -172,11 +183,10 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
 
   const toolbarButtonClass =
     "flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100";
-  const hiddenValue = isEditing ? draftHtml : html;
 
   return (
     <div className="overflow-hidden rounded-md border border-white/10 bg-white/[0.025] transition focus-within:border-stone-300/40">
-      <input name={name} type="hidden" value={hiddenValue} />
+      <input ref={hiddenInputRef} name={name} type="hidden" defaultValue={html} />
 
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.025] px-2 py-2">
         {isEditing ? (
@@ -282,10 +292,15 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
           suppressContentEditableWarning
           className="tasky-rich-editor min-h-60 w-full cursor-text overflow-y-auto px-3 py-3 text-sm leading-6 text-stone-100 outline-none"
           onBlur={syncDraft}
+          onDoubleClick={() => requestAnimationFrame(saveSelection)}
           onInput={syncDraft}
           onKeyDown={handleKeyDown}
-          onKeyUp={saveSelection}
+          onKeyUp={() => {
+            syncDraft();
+            saveSelection();
+          }}
           onMouseUp={saveSelection}
+          onSelect={saveSelection}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : isEmptyHtml(html) ? (
