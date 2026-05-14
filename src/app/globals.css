@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0b0c;
+  --foreground: #f4f1ea;
+  --muted: #a4a4a8;
+  --panel: rgba(23, 23, 25, 0.76);
+  --line: rgba(244, 241, 234, 0.1);
 }
 
 @theme inline {
@@ -12,15 +15,153 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-color: #3a3a3d #151517;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #151517;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3a3a3d;
+  border: 2px solid #151517;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4f;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+select {
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+select option {
+  background: #202022;
+  color: #f4f1ea;
+}
+
+select option:checked {
+  background: #3a3a3d;
+  color: #ffffff;
+}
+
+input[type="color"] {
+  width: 0;
+  height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  accent-color: #8f949b;
+  cursor: pointer;
+}
+
+input[type="range"] {
+  appearance: none;
+  height: 18px;
+  cursor: ew-resize;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: #343438;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 1px solid rgba(244, 241, 234, 0.3);
+  background: #b8b8bd;
+  border-radius: 999px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: #343438;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(244, 241, 234, 0.3);
+  background: #b8b8bd;
+  border-radius: 999px;
+}
+
+::selection {
+  background: rgba(244, 241, 234, 0.22);
+}
+
+.glass-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(22px);
+}
+
+.tasky-rich-editor strong,
+.tasky-rich-editor b {
+  font-weight: 700;
+}
+
+.tasky-rich-editor em,
+.tasky-rich-editor i {
+  font-style: italic;
+}
+
+.tasky-rich-editor code {
+  border: 1px solid rgba(244, 241, 234, 0.12);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  color: #d7d2c6;
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.tasky-rich-editor pre {
+  margin: 8px 0;
+  border: 1px solid rgba(244, 241, 234, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.tasky-rich-editor ul,
+.tasky-rich-editor ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.tasky-rich-editor p {
+  margin: 6px 0;
 }
