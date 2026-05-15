@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type DarkSelectOption = {
@@ -30,7 +30,7 @@ export function DarkSelect({
   const controlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [isOpen, setIsOpen] = useState(false);
-  const [menuRect, setMenuRect] = useState({ left: 0, top: 0, width: 0 });
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const currentValue = controlled ? value : internalValue;
@@ -43,7 +43,7 @@ export function DarkSelect({
     const rect = rootRef.current?.getBoundingClientRect();
 
     if (!rect) {
-      return;
+      return false;
     }
 
     setMenuRect({
@@ -51,7 +51,25 @@ export function DarkSelect({
       top: rect.bottom + 8,
       width: rect.width,
     });
+    return true;
   }
+
+  function toggleMenu() {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    if (updateMenuRect()) {
+      setIsOpen(true);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updateMenuRect();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -108,7 +126,7 @@ export function DarkSelect({
       <button
         className="flex h-10 w-full cursor-pointer items-center justify-between rounded-md border border-white/10 bg-white/[0.035] px-3 text-left text-sm text-stone-100 outline-none transition hover:border-white/15 hover:bg-white/[0.055] focus:border-stone-300/40"
         type="button"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={toggleMenu}
       >
         <span className={currentOption ? "truncate" : "truncate text-zinc-500"}>
           {currentOption?.label ?? placeholder}
@@ -116,11 +134,11 @@ export function DarkSelect({
         <span className="ml-3 h-2 w-2 rotate-45 border-b border-r border-zinc-500" />
       </button>
 
-      {isOpen
+      {isOpen && menuRect
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[100] max-h-72 overflow-y-auto rounded-md border border-white/10 bg-[#202022] p-1 shadow-2xl"
+              className="fixed z-[100] max-h-72 overflow-y-auto rounded-md border border-white/10 bg-[#202022] p-1 opacity-100 shadow-2xl transition-opacity duration-100"
               style={{ left: menuRect.left, top: menuRect.top, width: menuRect.width }}
             >
               {placeholder ? (

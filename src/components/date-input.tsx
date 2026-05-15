@@ -62,6 +62,7 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
     const date = selectedDate ?? new Date();
     return new Date(date.getFullYear(), date.getMonth(), 1);
   });
+  const today = useMemo(() => new Date(), []);
 
   const days = useMemo(() => {
     const year = visibleMonth.getFullYear();
@@ -155,10 +156,17 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
     setIsOpen(false);
   }
 
+  function chooseToday() {
+    chooseDate(today);
+  }
+
   return (
     <div className="relative" ref={rootRef}>
       <input
+        autoComplete="off"
         className="h-10 w-full cursor-pointer rounded-md border border-white/10 bg-white/[0.035] px-3 pr-10 text-sm text-stone-100 outline-none transition placeholder:text-zinc-600 hover:border-white/15 focus:border-stone-300/40 focus:bg-white/[0.06]"
+        data-lpignore="true"
+        data-form-type="other"
         name={name}
         placeholder={placeholder}
         required={required}
@@ -186,7 +194,7 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[100] w-72 rounded-md border border-white/10 bg-[#202022] p-3 shadow-2xl"
+              className="fixed z-[100] w-72 rounded-md border border-white/10 bg-[#202022] p-3 opacity-100 shadow-2xl transition-opacity duration-100"
               style={{ left: menuRect.left, top: menuRect.top }}
             >
               <div className="mb-3 flex items-center justify-between">
@@ -224,6 +232,8 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
                       className={
                         sameDay(selectedDate, date)
                           ? "h-8 cursor-pointer rounded bg-stone-200 text-sm font-medium text-zinc-950"
+                          : sameDay(today, date)
+                            ? "h-8 cursor-pointer rounded border border-stone-300/60 bg-white/[0.04] text-sm font-medium text-stone-100 transition hover:bg-white/[0.09]"
                           : "h-8 cursor-pointer rounded text-sm text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100"
                       }
                       type="button"
@@ -235,6 +245,16 @@ export function DateInput({ name, defaultValue, required, placeholder = "dd/mm/a
                     <div key={`blank-${index}`} />
                   ),
                 )}
+              </div>
+
+              <div className="mt-3 border-t border-white/10 pt-3">
+                <button
+                  className="h-8 w-full cursor-pointer rounded border border-white/10 text-sm font-medium text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-stone-100"
+                  type="button"
+                  onClick={chooseToday}
+                >
+                  Hoje
+                </button>
               </div>
             </div>,
             document.body,

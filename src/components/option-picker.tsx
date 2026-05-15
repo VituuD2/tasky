@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { saveOption } from "@/app/actions/admin";
 import { toOptionValue } from "@/lib/format";
@@ -44,7 +44,7 @@ export function OptionPicker({
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [menuRect, setMenuRect] = useState({ left: 0, top: 0, width: 260 });
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +61,7 @@ export function OptionPicker({
     const rect = rootRef.current?.getBoundingClientRect();
 
     if (!rect) {
-      return;
+      return false;
     }
 
     setMenuRect({
@@ -69,7 +69,25 @@ export function OptionPicker({
       top: rect.bottom + 8,
       width: Math.max(rect.width, 260),
     });
+    return true;
   }
+
+  function toggleMenu() {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    if (updateMenuRect()) {
+      setIsOpen(true);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (isOpen) {
+      updateMenuRect();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -193,7 +211,7 @@ export function OptionPicker({
       <button
         className="flex h-10 w-full cursor-pointer items-center justify-between rounded-md border border-white/10 bg-white/[0.035] px-3 text-left text-sm text-stone-100 outline-none transition hover:border-white/15 hover:bg-white/[0.055] focus:border-stone-300/40"
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={toggleMenu}
       >
         {selectedOption ? (
           <span
@@ -208,11 +226,11 @@ export function OptionPicker({
         <span className="ml-3 h-2 w-2 rotate-45 border-b border-r border-zinc-500" />
       </button>
 
-      {isOpen
+      {isOpen && menuRect
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[100] rounded-md border border-white/10 bg-[#202022] p-2 shadow-2xl"
+              className="fixed z-[100] rounded-md border border-white/10 bg-[#202022] p-2 opacity-100 shadow-2xl transition-opacity duration-100"
               style={{ left: menuRect.left, top: menuRect.top, width: menuRect.width }}
             >
               <div className="border-b border-white/10 px-2 pb-2 text-xs text-zinc-500">
