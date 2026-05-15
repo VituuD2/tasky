@@ -4,7 +4,14 @@ import { Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { deleteErrorReport, saveErrorReport } from "@/app/actions/error-reports";
 import { formatPersonName } from "@/lib/format";
-import type { CustomField, CustomFieldOption, ErrorReportWithRelations, Profile, SelectOption } from "@/types/tasky";
+import type {
+  CustomField,
+  CustomFieldOption,
+  ErrorReportWithRelations,
+  Profile,
+  SelectOption,
+  TableLayoutSetting,
+} from "@/types/tasky";
 import { FieldLabel, buttonClass, ghostButtonClass, inputClass, StatusMessage } from "@/components/ui";
 import { OptionPicker } from "@/components/option-picker";
 import { DarkSelect } from "@/components/dark-select";
@@ -19,6 +26,7 @@ type ErrorReportModalProps = {
   profiles: Profile[];
   customFields: CustomField[];
   customFieldOptions: CustomFieldOption[];
+  layout: TableLayoutSetting[];
   canManageOptions: boolean;
   onClose: () => void;
   onDataChange?: () => void;
@@ -34,6 +42,7 @@ export function ErrorReportModal({
   profiles,
   customFields,
   customFieldOptions,
+  layout,
   canManageOptions,
   onClose,
   onDataChange,
@@ -73,6 +82,14 @@ export function ErrorReportModal({
     () => new Map((report?.custom_field_values ?? []).map((value) => [value.field_id, value.value])),
     [report?.custom_field_values],
   );
+  const fieldLabels = useMemo(
+    () => new Map(layout.map((column) => [column.column_key, column.column_label])),
+    [layout],
+  );
+
+  function labelFor(columnKey: string, fallback: string) {
+    return fieldLabels.get(columnKey) ?? fallback;
+  }
 
   function handleSubmit(formData: FormData) {
     setMessage(null);
@@ -146,23 +163,23 @@ export function ErrorReportModal({
 
           <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
             <label>
-              <FieldLabel>Titulo</FieldLabel>
+              <FieldLabel>{labelFor("title", "Titulo")}</FieldLabel>
               <input name="title" required defaultValue={report?.title ?? ""} className={inputClass} />
             </label>
             <label>
-              <FieldLabel>Impacto financeiro</FieldLabel>
+              <FieldLabel>{labelFor("financial_impact", "Impacto financeiro")}</FieldLabel>
               <MoneyInput name="financial_impact" defaultValue={report?.financial_impact} />
             </label>
           </div>
 
           <label>
-              <FieldLabel>Descrição</FieldLabel>
+              <FieldLabel>{labelFor("description", "Descricao")}</FieldLabel>
             <RichTextArea name="description" defaultValue={report?.description} />
           </label>
 
           <div className="grid gap-4 md:grid-cols-3">
             <label>
-              <FieldLabel>Area afetada</FieldLabel>
+              <FieldLabel>{labelFor("affected_area", "Area afetada")}</FieldLabel>
               <OptionPicker
                 name="affected_area"
                 type="affected_area"
@@ -174,7 +191,7 @@ export function ErrorReportModal({
               />
             </label>
             <label>
-              <FieldLabel>Tipo de erro</FieldLabel>
+              <FieldLabel>{labelFor("error_type", "Tipo de erro")}</FieldLabel>
               <OptionPicker
                 name="error_type"
                 type="error_type"
@@ -186,7 +203,7 @@ export function ErrorReportModal({
               />
             </label>
             <label>
-              <FieldLabel>Severidade</FieldLabel>
+              <FieldLabel>{labelFor("severity", "Severidade")}</FieldLabel>
               <OptionPicker
                 name="severity"
                 type="severity"
@@ -201,7 +218,7 @@ export function ErrorReportModal({
 
           <div className="grid gap-4 md:grid-cols-4">
             <label>
-              <FieldLabel>Status</FieldLabel>
+              <FieldLabel>{labelFor("status", "Status")}</FieldLabel>
               <OptionPicker
                 name="status"
                 type="status"
@@ -213,22 +230,22 @@ export function ErrorReportModal({
               />
             </label>
             <label>
-              <FieldLabel>Data do erro</FieldLabel>
+              <FieldLabel>{labelFor("error_date", "Data do erro")}</FieldLabel>
               <DateInput name="error_date" defaultValue={report?.error_date} />
             </label>
             <label>
-              <FieldLabel>Aberto em</FieldLabel>
+              <FieldLabel>{labelFor("opened_at", "Aberto em")}</FieldLabel>
               <DateInput name="opened_at" defaultValue={report?.opened_at} required />
             </label>
             <label>
-              <FieldLabel>Resolvido em</FieldLabel>
+              <FieldLabel>{labelFor("resolved_at", "Resolvido em")}</FieldLabel>
               <DateInput name="resolved_at" defaultValue={report?.resolved_at} />
             </label>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <label>
-              <FieldLabel>Responsavel</FieldLabel>
+              <FieldLabel>{labelFor("responsible_profile_id", "Responsavel")}</FieldLabel>
               <DarkSelect
                 name="responsible_profile_id"
                 defaultValue={report?.responsible_profile_id ?? ""}
@@ -237,7 +254,7 @@ export function ErrorReportModal({
               />
             </label>
             <label>
-              <FieldLabel>Reportado por</FieldLabel>
+              <FieldLabel>{labelFor("reported_by", "Reportado por")}</FieldLabel>
               <DarkSelect
                 value={reportedByMode}
                 options={reportedByOptions}
@@ -246,7 +263,7 @@ export function ErrorReportModal({
               />
             </label>
             <label>
-              <FieldLabel>Já aconteceu</FieldLabel>
+              <FieldLabel>{labelFor("happened_before", "Ja aconteceu")}</FieldLabel>
               <DarkSelect
                 name="happened_before"
                 defaultValue={report?.happened_before === null ? "" : String(report?.happened_before ?? "")}
@@ -285,7 +302,7 @@ export function ErrorReportModal({
           ) : null}
 
           <label>
-            <FieldLabel>Ação corretiva</FieldLabel>
+            <FieldLabel>{labelFor("corrective_action", "Acao corretiva")}</FieldLabel>
             <RichTextArea name="corrective_action" defaultValue={report?.corrective_action} />
           </label>
 

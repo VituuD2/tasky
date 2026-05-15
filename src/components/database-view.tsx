@@ -438,6 +438,7 @@ export function DatabaseView({
           profiles={currentProfiles}
           customFields={currentCustomFields}
           customFieldOptions={currentCustomFieldOptions}
+          layout={currentLayout}
           canManageOptions={hasAdminAccess}
           onClose={() => setOpenReport(null)}
           onDataChange={refreshData}
