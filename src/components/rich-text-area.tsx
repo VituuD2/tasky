@@ -11,11 +11,6 @@ type RichTextAreaProps = {
 };
 
 type Command = "bold" | "italic" | "code" | "codeblock" | "bullet" | "numbered" | "paragraph";
-type ActiveFormats = {
-  bold: boolean;
-  italic: boolean;
-  code: boolean;
-};
 
 function escapeHtml(value: string) {
   return value
@@ -45,11 +40,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   const startingHtml = useMemo(() => initialHtml(defaultValue ?? ""), [defaultValue]);
   const [html, setHtml] = useState(startingHtml);
   const [isEditing, setIsEditing] = useState(initiallyEditing);
-  const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
-    bold: false,
-    italic: false,
-    code: false,
-  });
 
   useLayoutEffect(() => {
     if (!isEditing || !editorRef.current) {
@@ -80,30 +70,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     return match && editorRef.current?.contains(match) ? match : null;
   }
 
-  function updateActiveFormats() {
-    const selection = window.getSelection();
-    const node = selection?.anchorNode ?? null;
-
-    if (!node || !editorContains(node)) {
-      setActiveFormats((current) =>
-        current.bold || current.italic || current.code ? { bold: false, italic: false, code: false } : current,
-      );
-      return;
-    }
-
-    const nextFormats = {
-      bold: Boolean(closestInsideEditor(node, "strong,b")),
-      italic: Boolean(closestInsideEditor(node, "em,i")),
-      code: Boolean(closestInsideEditor(node, "code")),
-    };
-
-    setActiveFormats((current) =>
-      current.bold === nextFormats.bold && current.italic === nextFormats.italic && current.code === nextFormats.code
-        ? current
-        : nextFormats,
-    );
-  }
-
   function saveSelection() {
     const selection = window.getSelection();
 
@@ -115,7 +81,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
 
     if (editorContains(range.commonAncestorContainer)) {
       selectionRef.current = range.cloneRange();
-      updateActiveFormats();
     }
   }
 
@@ -132,17 +97,28 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   }
 
   function getSelectedRange() {
-    restoreSelection();
-
     const selection = window.getSelection();
 
-    if (!selection?.rangeCount) {
+    if (selection?.rangeCount) {
+      const currentRange = selection.getRangeAt(0);
+
+      if (editorContains(currentRange.commonAncestorContainer)) {
+        selectionRef.current = currentRange.cloneRange();
+        return currentRange;
+      }
+    }
+
+    restoreSelection();
+
+    const restoredSelection = window.getSelection();
+
+    if (!restoredSelection?.rangeCount) {
       return null;
     }
 
-    const range = selection.getRangeAt(0);
+    const restoredRange = restoredSelection.getRangeAt(0);
 
-    return editorContains(range.commonAncestorContainer) ? range : null;
+    return editorContains(restoredRange.commonAncestorContainer) ? restoredRange : null;
   }
 
   function selectNodeContents(node: Node) {
@@ -250,13 +226,11 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     if (formattedAncestor) {
       unwrapElement(formattedAncestor);
       syncDraft();
-      updateActiveFormats();
       return;
     }
 
     wrapSelection(tagName);
     syncDraft();
-    updateActiveFormats();
   }
 
   function insertInlineCode() {
@@ -272,7 +246,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     if (formattedAncestor) {
       unwrapElement(formattedAncestor);
       syncDraft();
-      updateActiveFormats();
       return;
     }
 
@@ -281,7 +254,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     range.insertNode(code);
     selectNodeContents(code);
     syncDraft();
-    updateActiveFormats();
   }
 
   function insertCodeBlock() {
@@ -300,7 +272,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     range.insertNode(pre);
     placeCaretAfter(pre);
     syncDraft();
-    updateActiveFormats();
   }
 
   function insertList(ordered: boolean) {
@@ -324,7 +295,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     range.insertNode(list);
     placeCaretAfter(list);
     syncDraft();
-    updateActiveFormats();
   }
 
   function wrapParagraph() {
@@ -339,7 +309,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     range.insertNode(paragraph);
     selectNodeContents(paragraph);
     syncDraft();
-    updateActiveFormats();
   }
 
   function insertPlainText(text: string) {
@@ -357,7 +326,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
   }
 
   function runCommand(command: Command) {
-    saveSelection();
     focusEditor();
 
     if (command === "bold") {
@@ -423,13 +391,8 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     }
   }
 
-  function toolbarButtonClass(command?: keyof ActiveFormats) {
-    const isActive = command ? activeFormats[command] : false;
-
-    return isActive
-      ? "flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-stone-200 text-zinc-950 transition hover:bg-white"
-      : "flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100";
-  }
+  const toolbarButtonClass =
+    "flex h-7 w-7 cursor-pointer items-center justify-center rounded text-zinc-300 transition hover:bg-white/[0.07] hover:text-stone-100";
 
   return (
     <div className="overflow-hidden rounded-md border border-white/10 bg-white/[0.025] transition focus-within:border-stone-300/40">
@@ -441,7 +404,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
             <div className="flex flex-wrap items-center gap-1">
               <button
                 aria-label="Negrito"
-                className={toolbarButtonClass("bold")}
+                className={toolbarButtonClass}
                 title="Negrito"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -451,7 +414,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Italico"
-                className={toolbarButtonClass("italic")}
+                className={toolbarButtonClass}
                 title="Italico"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -461,7 +424,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Codigo"
-                className={toolbarButtonClass("code")}
+                className={toolbarButtonClass}
                 title="Codigo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -471,7 +434,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Bloco de codigo"
-                className={toolbarButtonClass()}
+                className={toolbarButtonClass}
                 title="Bloco de codigo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -482,7 +445,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               <span className="mx-1 h-5 w-px bg-white/10" />
               <button
                 aria-label="Lista"
-                className={toolbarButtonClass()}
+                className={toolbarButtonClass}
                 title="Lista"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -492,7 +455,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Lista numerada"
-                className={toolbarButtonClass()}
+                className={toolbarButtonClass}
                 title="Lista numerada"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
@@ -502,7 +465,7 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
               </button>
               <button
                 aria-label="Paragrafo"
-                className={toolbarButtonClass()}
+                className={toolbarButtonClass}
                 title="Paragrafo"
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
