@@ -105,7 +105,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
 
           <label>
               <FieldLabel>Descrição</FieldLabel>
-            <RichTextArea name="description" defaultValue={report?.description} initiallyEditing={!report} />
+            <RichTextArea name="description" defaultValue={report?.description} />
           </label>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -213,7 +213,7 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
 
           <label>
             <FieldLabel>Ação corretiva</FieldLabel>
-            <RichTextArea name="corrective_action" defaultValue={report?.corrective_action} initiallyEditing={!report} />
+            <RichTextArea name="corrective_action" defaultValue={report?.corrective_action} />
           </label>
 
           {message ? <StatusMessage message={message.text} tone={message.ok ? "success" : "error"} /> : null}
