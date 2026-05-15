@@ -2,7 +2,7 @@
 
 import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { formatCurrency, formatDate, formatPersonName } from "@/lib/format";
 import { buildOptionMap } from "@/lib/options";
 import type { ErrorReportWithRelations, Profile, SelectOption, TableLayoutSetting } from "@/types/tasky";
@@ -56,7 +56,11 @@ function cellValue(report: ErrorReportWithRelations, key: string, optionMap: Map
 export function DatabaseView({ reports, options, profiles, layout, profile }: DatabaseViewProps) {
   const router = useRouter();
   const [openReport, setOpenReport] = useState<ErrorReportWithRelations | null | "new">(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const [columnWidths, setColumnWidths] = useState(() => new Map(layout.map((column) => [column.id, column.width])));
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionMap = useMemo(() => buildOptionMap(options), [options]);
   const hasAdminAccess = isAdmin(profile);
   const visibleColumns = layout.filter((column) => column.visible).sort((a, b) => a.position - b.position);
@@ -88,6 +92,41 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
     window.addEventListener("pointerup", handleUp);
   }
 
+  function refreshData() {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
+
+    setIsRefreshing(true);
+    setRefreshMessage("");
+    router.refresh();
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      setIsRefreshing(false);
+      setRefreshMessage("Dados atualizados");
+
+      messageTimeoutRef.current = setTimeout(() => {
+        setRefreshMessage("");
+      }, 2600);
+    }, 700);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <>
       <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
@@ -96,14 +135,20 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Database</h1>
           <p className="mt-2 text-sm text-zinc-400">{reports.length} registros visíveis</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {refreshMessage ? (
+            <span className="rounded border border-emerald-400/15 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-100">
+              {refreshMessage}
+            </span>
+          ) : null}
           <button
             aria-label="Atualizar dados"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-white/10 text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-stone-100 hover:shadow-[0_0_18px_rgba(244,241,234,0.1)]"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-emerald-400/15 bg-emerald-500/10 text-emerald-100 transition hover:border-emerald-300/30 hover:bg-emerald-500/15 hover:shadow-[0_0_18px_rgba(52,211,153,0.18)] disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={isRefreshing}
             type="button"
-            onClick={() => router.refresh()}
+            onClick={refreshData}
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
           <button className={buttonClass} onClick={() => setOpenReport("new")} type="button">
             Novo erro
