@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bold, Check, Code, Italic, List, ListOrdered, Pencil, Pilcrow, SquareCode } from "lucide-react";
 
 type RichTextAreaProps = {
@@ -51,6 +51,16 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     code: false,
   });
 
+  useLayoutEffect(() => {
+    if (!isEditing || !editorRef.current) {
+      return;
+    }
+
+    editorRef.current.innerHTML = html;
+    draftHtmlRef.current = html;
+    setHiddenValue(html);
+  }, [html, isEditing]);
+
   function editorContains(node: Node) {
     return Boolean(editorRef.current && (node === editorRef.current || editorRef.current.contains(node)));
   }
@@ -75,15 +85,23 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
     const node = selection?.anchorNode ?? null;
 
     if (!node || !editorContains(node)) {
-      setActiveFormats({ bold: false, italic: false, code: false });
+      setActiveFormats((current) =>
+        current.bold || current.italic || current.code ? { bold: false, italic: false, code: false } : current,
+      );
       return;
     }
 
-    setActiveFormats({
+    const nextFormats = {
       bold: Boolean(closestInsideEditor(node, "strong,b")),
       italic: Boolean(closestInsideEditor(node, "em,i")),
       code: Boolean(closestInsideEditor(node, "code")),
-    });
+    };
+
+    setActiveFormats((current) =>
+      current.bold === nextFormats.bold && current.italic === nextFormats.italic && current.code === nextFormats.code
+        ? current
+        : nextFormats,
+    );
   }
 
   function saveSelection() {
@@ -530,7 +548,6 @@ export function RichTextArea({ name, defaultValue, initiallyEditing = false }: R
           }}
           onMouseUp={saveSelection}
           onSelect={saveSelection}
-          dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : isEmptyHtml(html) ? (
         <div className="min-h-24 px-3 py-3 text-sm leading-6 text-zinc-500">Sem conteudo.</div>
