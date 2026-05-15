@@ -85,20 +85,28 @@ function sanitizeRichHtml(value: string) {
       continue;
     }
 
-    for (const attribute of Array.from(element.attributes)) {
-      element.removeAttribute(attribute.name);
-    }
-
     if (element instanceof HTMLImageElement) {
-      if (!/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(element.src)) {
+      const source = element.getAttribute("src") ?? "";
+
+      if (!/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(source)) {
         element.remove();
         continue;
       }
 
+      for (const attribute of Array.from(element.attributes)) {
+        element.removeAttribute(attribute.name);
+      }
+
+      element.src = source;
       element.alt = "Print colado";
       element.loading = "lazy";
       element.dataset.taskyImage = "true";
       element.contentEditable = "false";
+      continue;
+    }
+
+    for (const attribute of Array.from(element.attributes)) {
+      element.removeAttribute(attribute.name);
     }
   }
 
@@ -309,6 +317,9 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
         dangerouslySetInnerHTML={{ __html: html }}
         role="textbox"
         suppressContentEditableWarning
+        onBlur={() => {
+          syncValue();
+        }}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
