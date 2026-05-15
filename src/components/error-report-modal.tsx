@@ -1,7 +1,8 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
-import { saveErrorReport } from "@/app/actions/error-reports";
+import { deleteErrorReport, saveErrorReport } from "@/app/actions/error-reports";
 import { formatPersonName } from "@/lib/format";
 import type { ErrorReportWithRelations, Profile, SelectOption } from "@/types/tasky";
 import { FieldLabel, buttonClass, ghostButtonClass, inputClass, StatusMessage } from "@/components/ui";
@@ -17,15 +18,24 @@ type ErrorReportModalProps = {
   profiles: Profile[];
   canManageOptions: boolean;
   onClose: () => void;
+  onDataChange?: () => void;
 };
 
 function optionsByType(options: SelectOption[], type: string) {
   return options.filter((option) => option.type === type && option.is_active);
 }
 
-export function ErrorReportModal({ report, options, profiles, canManageOptions, onClose }: ErrorReportModalProps) {
+export function ErrorReportModal({
+  report,
+  options,
+  profiles,
+  canManageOptions,
+  onClose,
+  onDataChange,
+}: ErrorReportModalProps) {
   const [localOptions, setLocalOptions] = useState(options);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [reportedByMode, setReportedByMode] = useState(
     report?.reported_by_name ? "__create" : report?.reported_by_profile_id ?? "",
@@ -68,6 +78,25 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
 
       if (result.ok) {
         onClose();
+        onDataChange?.();
+      }
+    });
+  }
+
+  function handleDelete() {
+    if (!report) {
+      return;
+    }
+
+    setMessage(null);
+
+    startTransition(async () => {
+      const result = await deleteErrorReport(report.id);
+      setMessage({ text: result.message, ok: result.ok });
+
+      if (result.ok) {
+        onClose();
+        onDataChange?.();
       }
     });
   }
@@ -84,9 +113,22 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
               {report ? "Visualizar / editar erro" : "Reportar erro"}
             </h2>
           </div>
-          <button className={ghostButtonClass} onClick={onClose} type="button">
-            Fechar
-          </button>
+          <div className="flex items-center gap-2">
+            {report && canManageOptions ? (
+              <button
+                aria-label="Excluir erro"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-red-400/15 bg-red-500/10 text-red-200 transition hover:border-red-300/30 hover:bg-red-500/15 hover:text-red-100 hover:shadow-[0_0_20px_rgba(248,113,113,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isPending}
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <Trash2 className="h-4 w-4 fill-red-500/25 stroke-[2.4]" />
+              </button>
+            ) : null}
+            <button className={ghostButtonClass} onClick={onClose} type="button">
+              Fechar
+            </button>
+          </div>
         </div>
 
         <form action={handleSubmit} className="space-y-5 p-5">
@@ -228,6 +270,43 @@ export function ErrorReportModal({ report, options, profiles, canManageOptions, 
           </div>
         </form>
       </div>
+
+      {confirmingDelete && report ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-md border border-red-400/20 bg-[#151516] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-red-400/20 bg-red-500/10 text-red-100 shadow-[0_0_22px_rgba(248,113,113,0.14)]">
+                <Trash2 className="h-4 w-4 fill-red-500/25 stroke-[2.4]" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold text-stone-100">Excluir erro #{report.human_id}?</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Essa acao remove o registro do banco. Depois de confirmar, nao da para recuperar por esta tela.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                className={ghostButtonClass}
+                disabled={isPending}
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="h-10 cursor-pointer rounded-md border border-red-400/20 bg-red-500/15 px-4 text-sm font-medium text-red-100 transition hover:border-red-300/35 hover:bg-red-500/20 hover:shadow-[0_0_22px_rgba(248,113,113,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isPending}
+                type="button"
+                onClick={handleDelete}
+              >
+                {isPending ? "Excluindo" : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

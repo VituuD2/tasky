@@ -7,6 +7,12 @@ type RichTextAreaProps = {
   defaultValue?: string | null;
 };
 
+type EditorHistory = {
+  entries: string[];
+  index: number;
+  isApplying: boolean;
+};
+
 const editorClassName =
   "rich-text-editor min-h-60 w-full cursor-text overflow-y-auto rounded-md border border-white/10 bg-white/[0.035] px-3 py-3 text-sm leading-6 text-stone-100 outline-none transition empty:before:text-zinc-600 hover:border-white/15 focus:border-stone-300/40 focus:bg-white/[0.06]";
 
@@ -123,6 +129,31 @@ function insertNodeAtSelection(node: Node) {
   selection.addRange(range);
 }
 
+function restoreSelection(range: Range) {
+  const selection = window.getSelection();
+
+  if (!selection) {
+    return;
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function placeCaretAtEnd(element: HTMLElement) {
+  const selection = window.getSelection();
+
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 function insertPlainTextAtSelection(value: string) {
   const lines = value.replace(/\r\n|\r/g, "\n").split("\n");
 
@@ -138,33 +169,99 @@ function insertPlainTextAtSelection(value: string) {
 }
 
 export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
+  const html = initialHtml(defaultValue ?? "");
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyRef = useRef<EditorHistory>({
+    entries: [html],
+    index: 0,
+    isApplying: false,
+  });
 
   function syncValue() {
     if (!editorRef.current || !inputRef.current) {
+      return "";
+    }
+
+    const nextHtml = sanitizeRichHtml(editorRef.current.innerHTML);
+    inputRef.current.value = nextHtml;
+    return nextHtml;
+  }
+
+  function pushHistory(nextHtml: string) {
+    const history = historyRef.current;
+
+    if (history.isApplying || history.entries[history.index] === nextHtml) {
       return;
     }
 
-    inputRef.current.value = sanitizeRichHtml(editorRef.current.innerHTML);
+    history.entries = [...history.entries.slice(0, history.index + 1), nextHtml].slice(-80);
+    history.index = history.entries.length - 1;
+  }
+
+  function applyHistory(delta: -1 | 1) {
+    const editor = editorRef.current;
+    const input = inputRef.current;
+    const history = historyRef.current;
+    const nextIndex = history.index + delta;
+
+    if (!editor || !input || nextIndex < 0 || nextIndex >= history.entries.length) {
+      return;
+    }
+
+    history.isApplying = true;
+    history.index = nextIndex;
+    editor.innerHTML = history.entries[nextIndex];
+    input.value = history.entries[nextIndex];
+    placeCaretAtEnd(editor);
+    window.requestAnimationFrame(() => {
+      history.isApplying = false;
+    });
+  }
+
+  function handleInput() {
+    pushHistory(syncValue());
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const key = event.key.toLowerCase();
+    const isUndo = (event.ctrlKey || event.metaKey) && key === "z" && !event.shiftKey;
+    const isRedo =
+      (event.ctrlKey || event.metaKey) && (key === "y" || (key === "z" && event.shiftKey));
+
+    if (!isUndo && !isRedo) {
+      return;
+    }
+
+    event.preventDefault();
+    applyHistory(isUndo ? -1 : 1);
   }
 
   async function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
     const imageItems = Array.from(event.clipboardData.items).filter((item) => item.type.startsWith("image/"));
+    const selection = window.getSelection();
+    const pasteRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
 
     if (!imageItems.length) {
       const text = event.clipboardData.getData("text/plain");
 
       if (text) {
         event.preventDefault();
+
+        if (pasteRange) {
+          restoreSelection(pasteRange);
+        }
+
         insertPlainTextAtSelection(text);
-        syncValue();
+        pushHistory(syncValue());
       }
 
       return;
     }
 
     event.preventDefault();
+
+    const imageSources: string[] = [];
 
     for (const item of imageItems) {
       const file = item.getAsFile();
@@ -180,6 +277,14 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
         reader.readAsDataURL(file);
       });
 
+      imageSources.push(source);
+    }
+
+    if (pasteRange) {
+      restoreSelection(pasteRange);
+    }
+
+    for (const source of imageSources) {
       const image = document.createElement("img");
       image.src = source;
       image.alt = "Print colado";
@@ -190,10 +295,8 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
       insertNodeAtSelection(document.createElement("br"));
     }
 
-    syncValue();
+    pushHistory(syncValue());
   }
-
-  const html = initialHtml(defaultValue ?? "");
 
   return (
     <>
@@ -206,7 +309,8 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
         dangerouslySetInnerHTML={{ __html: html }}
         role="textbox"
         suppressContentEditableWarning
-        onInput={syncValue}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
         onPaste={handlePaste}
       />
     </>

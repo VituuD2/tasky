@@ -49,7 +49,7 @@ export const textareaClass =
   "min-h-24 w-full cursor-text resize-y rounded-md border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-stone-100 outline-none transition placeholder:text-zinc-600 hover:border-white/15 focus:border-stone-300/40 focus:bg-white/[0.06]";
 
 export const buttonClass =
-  "h-10 cursor-pointer rounded-md border border-white/10 bg-stone-100 px-4 text-sm font-medium text-zinc-950 shadow-[0_10px_28px_rgba(255,255,255,0.05)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60";
+  "h-10 cursor-pointer rounded-md border border-white/10 bg-stone-100 px-4 text-sm font-medium text-zinc-950 shadow-[0_10px_28px_rgba(255,255,255,0.05)] transition hover:bg-white hover:shadow-[0_0_18px_rgba(244,241,234,0.16)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export const ghostButtonClass =
-  "h-10 cursor-pointer rounded-md border border-white/10 px-4 text-sm font-medium text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-stone-100 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-10 cursor-pointer rounded-md border border-white/10 px-4 text-sm font-medium text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-stone-100 hover:shadow-[0_0_18px_rgba(244,241,234,0.1)] disabled:cursor-not-allowed disabled:opacity-60";

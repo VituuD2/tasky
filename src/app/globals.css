@@ -53,6 +53,17 @@ select {
   font: inherit;
 }
 
+button {
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter,
+    backdrop-filter;
+  transition-duration: 150ms;
+}
+
+button:hover:not(:disabled) {
+  box-shadow: 0 0 18px rgba(244, 241, 234, 0.08);
+}
+
 .rich-text-editor img {
   display: block;
   max-width: 100%;

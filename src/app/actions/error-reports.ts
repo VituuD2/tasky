@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { parseBrazilianCurrency, parseBrazilianDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult, ErrorReportInsert, ErrorReportUpdate } from "@/types/tasky";
@@ -160,4 +160,22 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
 
   revalidatePath("/");
   return { ok: true, message: "Erro criado." };
+}
+
+export async function deleteErrorReport(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  if (!id) {
+    return { ok: false, message: "Erro nao encontrado." };
+  }
+
+  const { error } = await supabase.from("error_reports").delete().eq("id", id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Erro excluido." };
 }

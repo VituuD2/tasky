@@ -1,5 +1,7 @@
 "use client";
 
+import { RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { formatCurrency, formatDate, formatPersonName } from "@/lib/format";
 import { buildOptionMap } from "@/lib/options";
@@ -52,6 +54,7 @@ function cellValue(report: ErrorReportWithRelations, key: string, optionMap: Map
 }
 
 export function DatabaseView({ reports, options, profiles, layout, profile }: DatabaseViewProps) {
+  const router = useRouter();
   const [openReport, setOpenReport] = useState<ErrorReportWithRelations | null | "new">(null);
   const [columnWidths, setColumnWidths] = useState(() => new Map(layout.map((column) => [column.id, column.width])));
   const optionMap = useMemo(() => buildOptionMap(options), [options]);
@@ -93,9 +96,19 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Database</h1>
           <p className="mt-2 text-sm text-zinc-400">{reports.length} registros visíveis</p>
         </div>
-        <button className={buttonClass} onClick={() => setOpenReport("new")} type="button">
-          Novo erro
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            aria-label="Atualizar dados"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-white/10 text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-stone-100 hover:shadow-[0_0_18px_rgba(244,241,234,0.1)]"
+            type="button"
+            onClick={() => router.refresh()}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button className={buttonClass} onClick={() => setOpenReport("new")} type="button">
+            Novo erro
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-md border border-white/10 bg-[#111113] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
@@ -156,6 +169,7 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
           profiles={profiles}
           canManageOptions={hasAdminAccess}
           onClose={() => setOpenReport(null)}
+          onDataChange={() => router.refresh()}
         />
       ) : null}
     </>
