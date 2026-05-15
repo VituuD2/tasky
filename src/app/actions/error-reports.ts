@@ -3,8 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { parseBrazilianCurrency, parseBrazilianDate } from "@/lib/format";
+import { listErrorReports, listLayoutSettings, listProfiles, listSelectOptions } from "@/lib/supabase/data";
 import { createClient } from "@/lib/supabase/server";
-import type { ActionResult, ErrorReportInsert, ErrorReportUpdate } from "@/types/tasky";
+import type {
+  ActionResult,
+  ErrorReportInsert,
+  ErrorReportUpdate,
+  ErrorReportWithRelations,
+  Profile,
+  SelectOption,
+  TableLayoutSetting,
+} from "@/types/tasky";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -178,4 +187,42 @@ export async function deleteErrorReport(id: string): Promise<ActionResult> {
 
   revalidatePath("/");
   return { ok: true, message: "Erro excluido." };
+}
+
+export async function getDatabaseSnapshot(): Promise<{
+  ok: boolean;
+  message: string;
+  reports: ErrorReportWithRelations[];
+  options: SelectOption[];
+  profiles: Profile[];
+  layout: TableLayoutSetting[];
+}> {
+  await requireUser();
+
+  try {
+    const [reports, options, profiles, layout] = await Promise.all([
+      listErrorReports(),
+      listSelectOptions(),
+      listProfiles(),
+      listLayoutSettings(),
+    ]);
+
+    return {
+      ok: true,
+      message: "Dados atualizados.",
+      reports,
+      options,
+      profiles,
+      layout,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Falha ao atualizar dados.",
+      reports: [],
+      options: [],
+      profiles: [],
+      layout: [],
+    };
+  }
 }
