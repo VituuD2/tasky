@@ -100,6 +100,46 @@ create table if not exists public.reported_people (
   unique (name)
 );
 
+create table if not exists public.custom_fields (
+  id uuid primary key default gen_random_uuid(),
+  table_name text not null default 'error_reports',
+  label text not null,
+  field_key text not null,
+  field_type text not null check (field_type in ('text', 'number', 'select', 'status', 'date', 'person', 'checkbox', 'url', 'email')),
+  is_required boolean not null default false,
+  is_active boolean not null default true,
+  width integer not null default 160,
+  position integer not null default 1000,
+  created_by uuid references public.profiles(id) on delete set null,
+  updated_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (table_name, field_key)
+);
+
+create table if not exists public.custom_field_options (
+  id uuid primary key default gen_random_uuid(),
+  field_id uuid not null references public.custom_fields(id) on delete cascade,
+  label text not null,
+  value text not null,
+  color text not null default '#8f949b',
+  sort_order integer not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (field_id, value)
+);
+
+create table if not exists public.custom_field_values (
+  id uuid primary key default gen_random_uuid(),
+  error_report_id uuid not null references public.error_reports(id) on delete cascade,
+  field_id uuid not null references public.custom_fields(id) on delete cascade,
+  value text,
+  updated_by uuid references public.profiles(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  unique (error_report_id, field_id)
+);
+
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
 before update on public.profiles
@@ -113,6 +153,16 @@ for each row execute function public.set_updated_at();
 drop trigger if exists set_select_options_updated_at on public.select_options;
 create trigger set_select_options_updated_at
 before update on public.select_options
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_custom_fields_updated_at on public.custom_fields;
+create trigger set_custom_fields_updated_at
+before update on public.custom_fields
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_custom_field_options_updated_at on public.custom_field_options;
+create trigger set_custom_field_options_updated_at
+before update on public.custom_field_options
 for each row execute function public.set_updated_at();
 
 create or replace function public.handle_new_user()
@@ -163,6 +213,9 @@ alter table public.attachments enable row level security;
 alter table public.select_options enable row level security;
 alter table public.table_layout_settings enable row level security;
 alter table public.reported_people enable row level security;
+alter table public.custom_fields enable row level security;
+alter table public.custom_field_options enable row level security;
+alter table public.custom_field_values enable row level security;
 
 drop policy if exists "Authenticated users can read profiles" on public.profiles;
 create policy "Authenticated users can read profiles"
@@ -278,6 +331,57 @@ on public.reported_people for delete
 to authenticated
 using (public.is_admin());
 
+drop policy if exists "Authenticated users can read custom fields" on public.custom_fields;
+create policy "Authenticated users can read custom fields"
+on public.custom_fields for select
+to authenticated
+using (true);
+
+drop policy if exists "Admins can manage custom fields" on public.custom_fields;
+create policy "Admins can manage custom fields"
+on public.custom_fields for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Authenticated users can read custom field options" on public.custom_field_options;
+create policy "Authenticated users can read custom field options"
+on public.custom_field_options for select
+to authenticated
+using (true);
+
+drop policy if exists "Admins can manage custom field options" on public.custom_field_options;
+create policy "Admins can manage custom field options"
+on public.custom_field_options for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Authenticated users can read custom field values" on public.custom_field_values;
+create policy "Authenticated users can read custom field values"
+on public.custom_field_values for select
+to authenticated
+using (true);
+
+drop policy if exists "Authenticated users can manage custom field values" on public.custom_field_values;
+create policy "Authenticated users can manage custom field values"
+on public.custom_field_values for all
+to authenticated
+using (
+  exists (
+    select 1 from public.error_reports
+    where error_reports.id = custom_field_values.error_report_id
+      and (public.is_admin() or error_reports.created_by = auth.uid())
+  )
+)
+with check (
+  exists (
+    select 1 from public.error_reports
+    where error_reports.id = custom_field_values.error_report_id
+      and (public.is_admin() or error_reports.created_by = auth.uid())
+  )
+);
+
 insert into public.select_options (type, label, value, color, sort_order)
 values
   ('affected_area', 'Atendimento', 'atendimento', '#a06a86', 10),
@@ -332,6 +436,9 @@ create index if not exists error_reports_responsible_profile_id_idx on public.er
 create index if not exists error_reports_reported_by_profile_id_idx on public.error_reports(reported_by_profile_id);
 create index if not exists attachments_error_report_id_idx on public.attachments(error_report_id);
 create index if not exists select_options_type_idx on public.select_options(type, sort_order);
+create index if not exists custom_fields_table_position_idx on public.custom_fields(table_name, position);
+create index if not exists custom_field_options_field_idx on public.custom_field_options(field_id, sort_order);
+create index if not exists custom_field_values_report_idx on public.custom_field_values(error_report_id);
 
 -- Depois de criar a primeira conta pelo signup, rode uma vez para promover o admin inicial:
 -- update public.profiles set role = 'admin' where email = 'seu-email@empresa.com';

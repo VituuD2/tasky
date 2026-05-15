@@ -4,18 +4,21 @@ import { Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { deleteErrorReport, saveErrorReport } from "@/app/actions/error-reports";
 import { formatPersonName } from "@/lib/format";
-import type { ErrorReportWithRelations, Profile, SelectOption } from "@/types/tasky";
+import type { CustomField, CustomFieldOption, ErrorReportWithRelations, Profile, SelectOption } from "@/types/tasky";
 import { FieldLabel, buttonClass, ghostButtonClass, inputClass, StatusMessage } from "@/components/ui";
 import { OptionPicker } from "@/components/option-picker";
 import { DarkSelect } from "@/components/dark-select";
 import { DateInput } from "@/components/date-input";
 import { MoneyInput } from "@/components/money-input";
 import { RichTextArea } from "@/components/rich-text-area";
+import { CustomFieldControl } from "@/components/custom-field-control";
 
 type ErrorReportModalProps = {
   report: ErrorReportWithRelations | null;
   options: SelectOption[];
   profiles: Profile[];
+  customFields: CustomField[];
+  customFieldOptions: CustomFieldOption[];
   canManageOptions: boolean;
   onClose: () => void;
   onDataChange?: () => void;
@@ -29,11 +32,14 @@ export function ErrorReportModal({
   report,
   options,
   profiles,
+  customFields,
+  customFieldOptions,
   canManageOptions,
   onClose,
   onDataChange,
 }: ErrorReportModalProps) {
   const [localOptions, setLocalOptions] = useState(options);
+  const [localCustomFieldOptions, setLocalCustomFieldOptions] = useState(customFieldOptions);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -62,6 +68,10 @@ export function ErrorReportModal({
   const happenedBeforeOptions = useMemo(
     () => groupedOptions.happenedBefore.map((option) => ({ value: option.value, label: option.label })),
     [groupedOptions.happenedBefore],
+  );
+  const customValueMap = useMemo(
+    () => new Map((report?.custom_field_values ?? []).map((value) => [value.field_id, value.value])),
+    [report?.custom_field_values],
   );
 
   function handleSubmit(formData: FormData) {
@@ -251,6 +261,27 @@ export function ErrorReportModal({
               <FieldLabel>Nome da pessoa sem conta</FieldLabel>
               <input name="reported_by_name" defaultValue={report?.reported_by_name ?? ""} className={inputClass} />
             </label>
+          ) : null}
+
+          {customFields.length ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {customFields.map((field) => (
+                <label key={field.id}>
+                  <FieldLabel>
+                    {field.label}
+                    {field.is_required ? " *" : ""}
+                  </FieldLabel>
+                  <CustomFieldControl
+                    field={field}
+                    options={localCustomFieldOptions}
+                    profiles={profiles}
+                    value={customValueMap.get(field.id)}
+                    canManageOptions={canManageOptions}
+                    onOptionsChange={setLocalCustomFieldOptions}
+                  />
+                </label>
+              ))}
+            </div>
           ) : null}
 
           <label>

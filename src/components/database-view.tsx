@@ -1,24 +1,38 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { GripVertical, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { formatCurrency, formatDate, formatPersonName } from "@/lib/format";
 import { buildOptionMap } from "@/lib/options";
-import type { ErrorReportWithRelations, Profile, SelectOption, TableLayoutSetting } from "@/types/tasky";
+import type {
+  CustomField,
+  CustomFieldOption,
+  ErrorReportWithRelations,
+  Profile,
+  SelectOption,
+  TableLayoutSetting,
+} from "@/types/tasky";
 import { EmptyState, buttonClass } from "@/components/ui";
 import { ErrorReportModal } from "@/components/error-report-modal";
 import { OptionTag } from "@/components/option-tag";
-import { updateColumnWidth } from "@/app/actions/admin";
+import { reorderColumns, updateColumnLabel, updateColumnWidth } from "@/app/actions/admin";
 import { getDatabaseSnapshot } from "@/app/actions/error-reports";
 import { isAdmin } from "@/lib/permissions";
+import { CustomFieldMenu } from "@/components/custom-field-menu";
 
 type DatabaseViewProps = {
   reports: ErrorReportWithRelations[];
   options: SelectOption[];
   profiles: Profile[];
   layout: TableLayoutSetting[];
+  customFields: CustomField[];
+  customFieldOptions: CustomFieldOption[];
   profile: Profile | null;
 };
+
+type DisplayColumn =
+  | { kind: "standard"; id: string; key: string; label: string; width: number; position: number }
+  | { kind: "custom"; id: string; key: string; label: string; width: number; position: number; field: CustomField };
 
 function cellValue(report: ErrorReportWithRelations, key: string, optionMap: Map<string, SelectOption>) {
   switch (key) {
@@ -53,12 +67,57 @@ function cellValue(report: ErrorReportWithRelations, key: string, optionMap: Map
   }
 }
 
-export function DatabaseView({ reports, options, profiles, layout, profile }: DatabaseViewProps) {
+function customCellValue(
+  report: ErrorReportWithRelations,
+  field: CustomField,
+  options: CustomFieldOption[],
+  profiles: Profile[],
+) {
+  const value = report.custom_field_values.find((fieldValue) => fieldValue.field_id === field.id)?.value;
+
+  if (!value) {
+    return "-";
+  }
+
+  if (field.field_type === "checkbox") {
+    return value === "true" ? "Sim" : "Nao";
+  }
+
+  if (field.field_type === "date") {
+    return formatDate(value) || value;
+  }
+
+  if (field.field_type === "person") {
+    const profile = profiles.find((item) => item.id === value);
+    return formatPersonName(profile?.full_name, profile?.email) || "-";
+  }
+
+  if (field.field_type === "select" || field.field_type === "status") {
+    return options.find((option) => option.field_id === field.id && option.value === value)?.label ?? value;
+  }
+
+  return value;
+}
+
+export function DatabaseView({
+  reports,
+  options,
+  profiles,
+  layout,
+  customFields,
+  customFieldOptions,
+  profile,
+}: DatabaseViewProps) {
   const [currentReports, setCurrentReports] = useState(reports);
   const [currentOptions, setCurrentOptions] = useState(options);
   const [currentProfiles, setCurrentProfiles] = useState(profiles);
   const [currentLayout, setCurrentLayout] = useState(layout);
+  const [currentCustomFields, setCurrentCustomFields] = useState(customFields);
+  const [currentCustomFieldOptions, setCurrentCustomFieldOptions] = useState(customFieldOptions);
   const [openReport, setOpenReport] = useState<ErrorReportWithRelations | null | "new">(null);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
+  const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [columnWidths, setColumnWidths] = useState(() => new Map(currentLayout.map((column) => [column.id, column.width])));
@@ -66,10 +125,33 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
   const messageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionMap = useMemo(() => buildOptionMap(currentOptions), [currentOptions]);
   const hasAdminAccess = isAdmin(profile);
-  const visibleColumns = currentLayout.filter((column) => column.visible).sort((a, b) => a.position - b.position);
-  const gridTemplateColumns = visibleColumns.map((column) => `${columnWidths.get(column.id) ?? column.width}px`).join(" ");
+  const visibleColumns: DisplayColumn[] = [
+    ...currentLayout
+      .filter((column) => column.visible)
+      .map((column) => ({
+        kind: "standard" as const,
+        id: column.id,
+        key: column.column_key,
+        label: column.column_label,
+        width: column.width,
+        position: column.position,
+      })),
+    ...currentCustomFields.map((field) => ({
+      kind: "custom" as const,
+      id: field.id,
+      key: field.field_key,
+      label: field.label,
+      width: field.width,
+      position: field.position,
+      field,
+    })),
+  ].sort((a, b) => a.position - b.position);
+  const gridTemplateColumns = [
+    ...visibleColumns.map((column) => `${columnWidths.get(column.id) ?? column.width}px`),
+    ...(hasAdminAccess ? ["52px"] : []),
+  ].join(" ");
 
-  function startResize(event: ReactPointerEvent<HTMLDivElement>, column: TableLayoutSetting) {
+  function startResize(event: ReactPointerEvent<HTMLDivElement>, column: DisplayColumn) {
     if (!hasAdminAccess) {
       return;
     }
@@ -88,7 +170,7 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
       const nextWidth = Math.min(Math.max(startWidth + upEvent.clientX - startX, 80), 640);
-      void updateColumnWidth(column.id, nextWidth);
+      void updateColumnWidth(column.id, nextWidth, column.kind);
     }
 
     window.addEventListener("pointermove", handleMove);
@@ -114,12 +196,20 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
       setCurrentOptions(result.options);
       setCurrentProfiles(result.profiles);
       setCurrentLayout(result.layout);
+      setCurrentCustomFields(result.customFields);
+      setCurrentCustomFieldOptions(result.customFieldOptions);
       setColumnWidths((current) => {
         const next = new Map(current);
 
         for (const column of result.layout) {
           if (!next.has(column.id)) {
             next.set(column.id, column.width);
+          }
+        }
+
+        for (const field of result.customFields) {
+          if (!next.has(field.id)) {
+            next.set(field.id, field.width);
           }
         }
 
@@ -148,6 +238,61 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
       }
     };
   }, []);
+
+  async function saveColumnLabel(column: DisplayColumn) {
+    const nextLabel = editingLabel.trim();
+    setEditingColumnId(null);
+
+    if (!nextLabel || nextLabel === column.label) {
+      return;
+    }
+
+    const result = await updateColumnLabel(column.kind, column.id, nextLabel);
+
+    if (result.ok) {
+      if (column.kind === "standard") {
+        setCurrentLayout((current) =>
+          current.map((item) => (item.id === column.id ? { ...item, column_label: nextLabel } : item)),
+        );
+      } else {
+        setCurrentCustomFields((current) =>
+          current.map((item) => (item.id === column.id ? { ...item, label: nextLabel } : item)),
+        );
+      }
+    }
+  }
+
+  function moveColumn(targetId: string) {
+    if (!draggingColumnId || draggingColumnId === targetId) {
+      return;
+    }
+
+    const from = visibleColumns.findIndex((column) => column.id === draggingColumnId);
+    const to = visibleColumns.findIndex((column) => column.id === targetId);
+
+    if (from < 0 || to < 0) {
+      return;
+    }
+
+    const nextColumns = [...visibleColumns];
+    const [moved] = nextColumns.splice(from, 1);
+    nextColumns.splice(to, 0, moved);
+    const nextPositions = nextColumns.map((column, index) => ({ ...column, position: (index + 1) * 10 }));
+
+    setCurrentLayout((current) =>
+      current.map((column) => {
+        const next = nextPositions.find((item) => item.kind === "standard" && item.id === column.id);
+        return next ? { ...column, position: next.position } : column;
+      }),
+    );
+    setCurrentCustomFields((current) =>
+      current.map((field) => {
+        const next = nextPositions.find((item) => item.kind === "custom" && item.id === field.id);
+        return next ? { ...field, position: next.position } : field;
+      }),
+    );
+    void reorderColumns(nextPositions.map((column) => ({ kind: column.kind, id: column.id, position: column.position })));
+  }
 
   return (
     <>
@@ -186,11 +331,56 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
               style={{ gridTemplateColumns }}
             >
               {visibleColumns.map((column) => (
-                <div key={column.id} className="relative border-r border-white/10 px-3 py-3 last:border-r-0">
-                  {column.column_label}
+                <div
+                  key={column.id}
+                  className="relative flex items-center gap-1 border-r border-white/10 px-3 py-3 last:border-r-0"
+                  draggable={hasAdminAccess}
+                  onDragStart={() => setDraggingColumnId(column.id)}
+                  onDragOver={(event) => {
+                    if (hasAdminAccess) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onDrop={() => moveColumn(column.id)}
+                >
+                  {hasAdminAccess ? <GripVertical className="h-3.5 w-3.5 shrink-0 text-zinc-600" /> : null}
+                  {editingColumnId === column.id ? (
+                    <input
+                      autoFocus
+                      className="h-6 min-w-0 flex-1 rounded border border-white/10 bg-white/[0.06] px-1 text-xs text-stone-100 outline-none"
+                      value={editingLabel}
+                      onChange={(event) => setEditingLabel(event.target.value)}
+                      onBlur={() => void saveColumnLabel(column)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+
+                        if (event.key === "Escape") {
+                          setEditingColumnId(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      className="min-w-0 truncate text-left"
+                      disabled={!hasAdminAccess}
+                      type="button"
+                      onClick={() => {
+                        if (!hasAdminAccess) {
+                          return;
+                        }
+
+                        setEditingColumnId(column.id);
+                        setEditingLabel(column.label);
+                      }}
+                    >
+                      {column.label}
+                    </button>
+                  )}
                   {hasAdminAccess ? (
                     <div
-                      aria-label={`Redimensionar ${column.column_label}`}
+                      aria-label={`Redimensionar ${column.label}`}
                       className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none transition hover:bg-stone-300/30"
                       role="separator"
                       onPointerDown={(event) => startResize(event, column)}
@@ -198,6 +388,7 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
                   ) : null}
                 </div>
               ))}
+              {hasAdminAccess ? <CustomFieldMenu onCreated={refreshData} /> : null}
             </div>
 
             {currentReports.length ? (
@@ -211,7 +402,11 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
                 >
                   {visibleColumns.map((column) => (
                     <div key={column.id} className="min-w-0 border-r border-white/5 px-3 py-3 last:border-r-0">
-                      <div className="truncate">{cellValue(report, column.column_key, optionMap)}</div>
+                      <div className="truncate">
+                        {column.kind === "custom"
+                          ? customCellValue(report, column.field, currentCustomFieldOptions, currentProfiles)
+                          : cellValue(report, column.key, optionMap)}
+                      </div>
                     </div>
                   ))}
                 </button>
@@ -234,6 +429,8 @@ export function DatabaseView({ reports, options, profiles, layout, profile }: Da
           report={openReport === "new" ? null : openReport}
           options={currentOptions}
           profiles={currentProfiles}
+          customFields={currentCustomFields}
+          customFieldOptions={currentCustomFieldOptions}
           canManageOptions={hasAdminAccess}
           onClose={() => setOpenReport(null)}
           onDataChange={refreshData}

@@ -3,13 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { parseBrazilianCurrency, parseBrazilianDate } from "@/lib/format";
-import { listErrorReports, listLayoutSettings, listProfiles, listSelectOptions } from "@/lib/supabase/data";
+import {
+  listCustomFieldOptions,
+  listCustomFields,
+  listErrorReports,
+  listLayoutSettings,
+  listProfiles,
+  listSelectOptions,
+} from "@/lib/supabase/data";
 import { createClient } from "@/lib/supabase/server";
 import type {
   ActionResult,
   ErrorReportInsert,
   ErrorReportUpdate,
   ErrorReportWithRelations,
+  CustomField,
+  CustomFieldOption,
   Profile,
   SelectOption,
   TableLayoutSetting,
@@ -64,6 +73,33 @@ function validateRequiredFields(payload: {
   return null;
 }
 
+async function saveCustomFieldValues(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  reportId: string,
+  userId: string,
+  formData: FormData,
+  customFields: CustomField[],
+) {
+  for (const field of customFields) {
+    const value = nullableString(getString(formData, `custom_field_${field.id}`));
+    const { error } = await supabase.from("custom_field_values").upsert(
+      {
+        error_report_id: reportId,
+        field_id: field.id,
+        value,
+        updated_by: userId,
+      },
+      { onConflict: "error_report_id,field_id" },
+    );
+
+    if (error) {
+      return error.message;
+    }
+  }
+
+  return null;
+}
+
 export async function saveErrorReport(formData: FormData): Promise<ActionResult> {
   const { user } = await requireUser();
   const supabase = await createClient();
@@ -80,6 +116,7 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
   const resolvedAt = parseOptionalDate(formData, "resolved_at");
   const financialImpactRaw = getString(formData, "financial_impact");
   const financialImpact = financialImpactRaw ? parseBrazilianCurrency(financialImpactRaw) : null;
+  const customFields = await listCustomFields();
 
   const requiredError = validateRequiredFields({
     title,
@@ -114,6 +151,30 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
     return { ok: false, message: "A data de resolução não pode ser anterior à abertura." };
   }
 
+  for (const field of customFields) {
+    const value = getString(formData, `custom_field_${field.id}`);
+
+    if (field.is_required && !value) {
+      return { ok: false, message: `${field.label} obrigatorio.` };
+    }
+
+    if (value && field.field_type === "number" && !Number.isFinite(Number(value.replace(",", ".")))) {
+      return { ok: false, message: `${field.label} deve ser numero.` };
+    }
+
+    if (value && field.field_type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      return { ok: false, message: `${field.label} deve ser email valido.` };
+    }
+
+    if (value && field.field_type === "url") {
+      try {
+        new URL(value);
+      } catch {
+        return { ok: false, message: `${field.label} deve ser URL valida.` };
+      }
+    }
+  }
+
   const basePayload = {
     title,
     description: nullableString(description),
@@ -146,6 +207,12 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
       return { ok: false, message: error.message };
     }
 
+    const valuesError = await saveCustomFieldValues(supabase, id, user.id, formData, customFields);
+
+    if (valuesError) {
+      return { ok: false, message: valuesError };
+    }
+
     revalidatePath("/");
     return { ok: true, message: "Erro atualizado." };
   }
@@ -161,10 +228,16 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
     created_by: user.id,
   };
 
-  const { error } = await supabase.from("error_reports").insert(payload);
+  const { data: inserted, error } = await supabase.from("error_reports").insert(payload).select("id").single();
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  const valuesError = await saveCustomFieldValues(supabase, inserted.id, user.id, formData, customFields);
+
+  if (valuesError) {
+    return { ok: false, message: valuesError };
   }
 
   revalidatePath("/");
@@ -196,15 +269,19 @@ export async function getDatabaseSnapshot(): Promise<{
   options: SelectOption[];
   profiles: Profile[];
   layout: TableLayoutSetting[];
+  customFields: CustomField[];
+  customFieldOptions: CustomFieldOption[];
 }> {
   await requireUser();
 
   try {
-    const [reports, options, profiles, layout] = await Promise.all([
+    const [reports, options, profiles, layout, customFields, customFieldOptions] = await Promise.all([
       listErrorReports(),
       listSelectOptions(),
       listProfiles(),
       listLayoutSettings(),
+      listCustomFields(),
+      listCustomFieldOptions(),
     ]);
 
     return {
@@ -214,6 +291,8 @@ export async function getDatabaseSnapshot(): Promise<{
       options,
       profiles,
       layout,
+      customFields,
+      customFieldOptions,
     };
   } catch (error) {
     return {
@@ -223,6 +302,8 @@ export async function getDatabaseSnapshot(): Promise<{
       options: [],
       profiles: [],
       layout: [],
+      customFields: [],
+      customFieldOptions: [],
     };
   }
 }

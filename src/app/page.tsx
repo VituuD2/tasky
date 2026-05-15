@@ -3,7 +3,14 @@ import { DatabaseView } from "@/components/database-view";
 import { EmptyState, StatusMessage } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { listErrorReports, listLayoutSettings, listProfiles, listSelectOptions } from "@/lib/supabase/data";
+import {
+  listCustomFieldOptions,
+  listCustomFields,
+  listErrorReports,
+  listLayoutSettings,
+  listProfiles,
+  listSelectOptions,
+} from "@/lib/supabase/data";
 
 export default async function HomePage() {
   const { profile } = await requireUser();
@@ -21,12 +28,16 @@ export default async function HomePage() {
       listSelectOptions(),
       listProfiles(),
       listLayoutSettings(),
+      listCustomFields(),
+      listCustomFieldOptions(),
     ])
-    .then(([reports, options, profiles, layout]) => ({
+    .then(([reports, options, profiles, layout, customFields, customFieldOptions]) => ({
       reports,
       options,
       profiles,
       layout,
+      customFields,
+      customFieldOptions,
       error: null as string | null,
     }))
     .catch((error: unknown) => ({
@@ -34,6 +45,8 @@ export default async function HomePage() {
       options: [],
       profiles: [],
       layout: [],
+      customFields: [],
+      customFieldOptions: [],
       error: error instanceof Error ? error.message : "Erro inesperado ao buscar dados.",
     }));
 
@@ -52,6 +65,8 @@ export default async function HomePage() {
         options={data.options}
         profiles={data.profiles}
         layout={data.layout}
+        customFields={data.customFields}
+        customFieldOptions={data.customFieldOptions}
         profile={profile}
       />
     </AppShell>

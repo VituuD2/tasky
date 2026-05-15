@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ErrorReportWithRelations,
   ExportFilters,
+  CustomField,
+  CustomFieldOption,
   OptionType,
   Profile,
   SelectOption,
@@ -13,7 +15,8 @@ const ERROR_REPORT_SELECT = `
   responsible_profile:profiles!error_reports_responsible_profile_id_fkey(id,email,full_name),
   reported_by_profile:profiles!error_reports_reported_by_profile_id_fkey(id,email,full_name),
   created_by_profile:profiles!error_reports_created_by_fkey(id,email,full_name),
-  attachments(*)
+  attachments(*),
+  custom_field_values(*)
 `;
 
 export async function listSelectOptions(types?: OptionType[]) {
@@ -65,6 +68,37 @@ export async function listLayoutSettings() {
   }
 
   return data as TableLayoutSetting[];
+}
+
+export async function listCustomFields() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("custom_fields")
+    .select("*")
+    .eq("table_name", "error_reports")
+    .eq("is_active", true)
+    .order("position", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as CustomField[];
+}
+
+export async function listCustomFieldOptions() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("custom_field_options")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as CustomFieldOption[];
 }
 
 export async function listErrorReports(filters: ExportFilters = {}) {

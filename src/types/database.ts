@@ -7,6 +7,7 @@ export type Json =
   | Json[];
 
 export type ProfileRole = "admin" | "user";
+export type CustomFieldType = "text" | "number" | "select" | "status" | "date" | "person" | "checkbox" | "url" | "email";
 
 export type Database = {
   public: {
@@ -230,6 +231,117 @@ export type Database = {
           name?: string;
           created_by?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      custom_fields: {
+        Row: {
+          id: string;
+          table_name: string;
+          label: string;
+          field_key: string;
+          field_type: CustomFieldType;
+          is_required: boolean;
+          is_active: boolean;
+          width: number;
+          position: number;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          table_name?: string;
+          label: string;
+          field_key: string;
+          field_type: CustomFieldType;
+          is_required?: boolean;
+          is_active?: boolean;
+          width?: number;
+          position?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          table_name?: string;
+          label?: string;
+          field_key?: string;
+          field_type?: CustomFieldType;
+          is_required?: boolean;
+          is_active?: boolean;
+          width?: number;
+          position?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      custom_field_options: {
+        Row: {
+          id: string;
+          field_id: string;
+          label: string;
+          value: string;
+          color: string;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          field_id: string;
+          label: string;
+          value: string;
+          color?: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          field_id?: string;
+          label?: string;
+          value?: string;
+          color?: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      custom_field_values: {
+        Row: {
+          id: string;
+          error_report_id: string;
+          field_id: string;
+          value: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          error_report_id: string;
+          field_id: string;
+          value?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          error_report_id?: string;
+          field_id?: string;
+          value?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };

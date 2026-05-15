@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { toOptionValue } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import type { ActionResult, OptionType } from "@/types/tasky";
+import type { ActionResult, CustomFieldType, OptionType } from "@/types/tasky";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -112,22 +112,171 @@ export async function updateLayoutSetting(formData: FormData): Promise<ActionRes
   return { ok: true, message: "Layout atualizado." };
 }
 
-export async function updateColumnWidth(columnId: string, width: number): Promise<ActionResult> {
+export async function updateColumnWidth(
+  columnId: string,
+  width: number,
+  kind: "standard" | "custom" = "standard",
+): Promise<ActionResult> {
   const { user } = await requireAdmin();
   const supabase = await createClient();
   const normalizedWidth = Math.min(Math.max(Math.round(width), 80), 640);
 
-  const { error } = await supabase
-    .from("table_layout_settings")
-    .update({ width: normalizedWidth, updated_by: user.id })
-    .eq("id", columnId);
+  const result =
+    kind === "standard"
+      ? await supabase
+          .from("table_layout_settings")
+          .update({ width: normalizedWidth, updated_by: user.id })
+          .eq("id", columnId)
+      : await supabase.from("custom_fields").update({ width: normalizedWidth, updated_by: user.id }).eq("id", columnId);
+
+  if (result.error) {
+    return { ok: false, message: result.error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Largura atualizada." };
+}
+
+const CUSTOM_FIELD_TYPES = new Set(["text", "number", "select", "status", "date", "person", "checkbox", "url", "email"]);
+
+export async function createCustomField(formData: FormData): Promise<ActionResult> {
+  const { user } = await requireAdmin();
+  const supabase = await createClient();
+  const label = getString(formData, "label");
+  const fieldType = getString(formData, "field_type") as CustomFieldType;
+  const isRequired = formData.get("is_required") === "on";
+
+  if (!label) {
+    return { ok: false, message: "Nome obrigatorio." };
+  }
+
+  if (!CUSTOM_FIELD_TYPES.has(fieldType)) {
+    return { ok: false, message: "Tipo de campo invalido." };
+  }
+
+  const { data: existingFields, error: fieldsError } = await supabase
+    .from("custom_fields")
+    .select("field_key,position")
+    .eq("table_name", "error_reports");
+
+  if (fieldsError) {
+    return { ok: false, message: fieldsError.message };
+  }
+
+  const existingKeys = new Set((existingFields ?? []).map((field) => field.field_key));
+  const baseKey = toOptionValue(label) || "campo";
+  let fieldKey = baseKey;
+  let suffix = 2;
+
+  while (existingKeys.has(fieldKey)) {
+    fieldKey = `${baseKey}_${suffix}`;
+    suffix += 1;
+  }
+
+  const nextPosition = Math.max(1000, ...(existingFields ?? []).map((field) => field.position)) + 10;
+  const { error } = await supabase.from("custom_fields").insert({
+    table_name: "error_reports",
+    label,
+    field_key: fieldKey,
+    field_type: fieldType,
+    is_required: isRequired,
+    position: nextPosition,
+    created_by: user.id,
+    updated_by: user.id,
+  });
 
   if (error) {
     return { ok: false, message: error.message };
   }
 
   revalidatePath("/");
-  return { ok: true, message: "Largura atualizada." };
+  return { ok: true, message: "Campo criado." };
+}
+
+export async function updateColumnLabel(kind: "standard" | "custom", id: string, label: string): Promise<ActionResult> {
+  const { user } = await requireAdmin();
+  const supabase = await createClient();
+  const nextLabel = label.trim();
+
+  if (!nextLabel) {
+    return { ok: false, message: "Nome obrigatorio." };
+  }
+
+  const result =
+    kind === "standard"
+      ? await supabase
+          .from("table_layout_settings")
+          .update({ column_label: nextLabel, updated_by: user.id })
+          .eq("id", id)
+      : await supabase.from("custom_fields").update({ label: nextLabel, updated_by: user.id }).eq("id", id);
+
+  if (result.error) {
+    return { ok: false, message: result.error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Coluna renomeada." };
+}
+
+export async function reorderColumns(
+  columns: Array<{ kind: "standard" | "custom"; id: string; position: number }>,
+): Promise<ActionResult> {
+  const { user } = await requireAdmin();
+  const supabase = await createClient();
+
+  for (const column of columns) {
+    const result =
+      column.kind === "standard"
+        ? await supabase
+            .from("table_layout_settings")
+            .update({ position: column.position, updated_by: user.id })
+            .eq("id", column.id)
+        : await supabase.from("custom_fields").update({ position: column.position, updated_by: user.id }).eq("id", column.id);
+
+    if (result.error) {
+      return { ok: false, message: result.error.message };
+    }
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Ordem atualizada." };
+}
+
+export async function saveCustomFieldOption(formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const fieldId = getString(formData, "field_id");
+  const label = getString(formData, "label");
+  const color = getString(formData, "color") || "#8f949b";
+
+  if (!fieldId || !label) {
+    return { ok: false, message: "Opcao invalida." };
+  }
+
+  const { data: options, error: optionsError } = await supabase
+    .from("custom_field_options")
+    .select("sort_order")
+    .eq("field_id", fieldId);
+
+  if (optionsError) {
+    return { ok: false, message: optionsError.message };
+  }
+
+  const { error } = await supabase.from("custom_field_options").insert({
+    field_id: fieldId,
+    label,
+    value: getString(formData, "value") || toOptionValue(label),
+    color,
+    sort_order: Math.max(0, ...(options ?? []).map((option) => option.sort_order)) + 10,
+    is_active: true,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Opcao criada." };
 }
 
 export async function resetLayoutSettings(): Promise<ActionResult> {

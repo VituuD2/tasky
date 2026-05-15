@@ -8,6 +8,11 @@ export type Attachment = Database["public"]["Tables"]["attachments"]["Row"];
 export type SelectOption = Database["public"]["Tables"]["select_options"]["Row"];
 export type TableLayoutSetting = Database["public"]["Tables"]["table_layout_settings"]["Row"];
 export type ReportedPerson = Database["public"]["Tables"]["reported_people"]["Row"];
+export type CustomField = Database["public"]["Tables"]["custom_fields"]["Row"];
+export type CustomFieldInsert = Database["public"]["Tables"]["custom_fields"]["Insert"];
+export type CustomFieldOption = Database["public"]["Tables"]["custom_field_options"]["Row"];
+export type CustomFieldValue = Database["public"]["Tables"]["custom_field_values"]["Row"];
+export type CustomFieldType = Database["public"]["Tables"]["custom_fields"]["Row"]["field_type"];
 
 export type OptionType = "affected_area" | "error_type" | "severity" | "status" | "happened_before";
 
@@ -16,6 +21,7 @@ export type ErrorReportWithRelations = ErrorReport & {
   reported_by_profile: Pick<Profile, "id" | "email" | "full_name"> | null;
   created_by_profile: Pick<Profile, "id" | "email" | "full_name"> | null;
   attachments: Attachment[];
+  custom_field_values: CustomFieldValue[];
 };
 
 export type ExportFilters = {
