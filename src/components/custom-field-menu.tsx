@@ -17,7 +17,7 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
   const [label, setLabel] = useState("");
   const [isRequired, setIsRequired] = useState(false);
   const [message, setMessage] = useState("");
-  const [menuRect, setMenuRect] = useState<{ left: number; top: number } | null>(null);
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const [isPending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -29,7 +29,10 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
       return false;
     }
 
-    setMenuRect({ left: rect.left, top: rect.bottom + 8 });
+    const width = Math.min(384, window.innerWidth - 24);
+    const left = Math.min(Math.max(12, rect.right - width), window.innerWidth - width - 12);
+
+    setMenuRect({ left, top: rect.bottom + 8, width });
     return true;
   }
 
@@ -119,8 +122,8 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[110] w-96 rounded-md border border-white/10 bg-[#202022] p-3 shadow-2xl"
-              style={{ left: menuRect.left, top: menuRect.top }}
+              className="fixed z-[110] rounded-md border border-white/10 bg-[#202022] p-3 shadow-2xl"
+              style={{ left: menuRect.left, top: menuRect.top, width: menuRect.width }}
             >
               <div className="grid grid-cols-2 gap-1 border-b border-white/10 pb-3">
                 {customFieldTypes.map((type) => {

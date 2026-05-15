@@ -333,9 +333,14 @@ export function DatabaseView({
               {visibleColumns.map((column) => (
                 <div
                   key={column.id}
-                  className="relative flex items-center gap-1 border-r border-white/10 px-3 py-3 last:border-r-0"
+                  className={
+                    hasAdminAccess
+                      ? "relative flex cursor-grab items-center gap-1 border-r border-white/10 px-3 py-3 active:cursor-grabbing last:border-r-0"
+                      : "relative flex items-center gap-1 border-r border-white/10 px-3 py-3 last:border-r-0"
+                  }
                   draggable={hasAdminAccess}
                   onDragStart={() => setDraggingColumnId(column.id)}
+                  onDragEnd={() => setDraggingColumnId(null)}
                   onDragOver={(event) => {
                     if (hasAdminAccess) {
                       event.preventDefault();
@@ -343,7 +348,9 @@ export function DatabaseView({
                   }}
                   onDrop={() => moveColumn(column.id)}
                 >
-                  {hasAdminAccess ? <GripVertical className="h-3.5 w-3.5 shrink-0 text-zinc-600" /> : null}
+                  {hasAdminAccess ? (
+                    <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-zinc-600 active:cursor-grabbing" />
+                  ) : null}
                   {editingColumnId === column.id ? (
                     <input
                       autoFocus
