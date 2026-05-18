@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 type RichTextAreaProps = {
   name: string;
@@ -177,14 +177,25 @@ function insertPlainTextAtSelection(value: string) {
 }
 
 export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
-  const html = initialHtml(defaultValue ?? "");
+  const [initialHtmlValue] = useState(() => initialHtml(defaultValue ?? ""));
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<EditorHistory>({
-    entries: [html],
+    entries: [initialHtmlValue],
     index: 0,
     isApplying: false,
   });
+  const initializedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (initializedRef.current || !editorRef.current || !inputRef.current) {
+      return;
+    }
+
+    initializedRef.current = true;
+    editorRef.current.innerHTML = initialHtmlValue;
+    inputRef.current.value = initialHtmlValue;
+  }, [initialHtmlValue]);
 
   function syncValue() {
     if (!editorRef.current || !inputRef.current) {
@@ -308,13 +319,12 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
 
   return (
     <>
-      <input ref={inputRef} name={name} type="hidden" defaultValue={html} />
+      <input ref={inputRef} name={name} type="hidden" defaultValue={initialHtmlValue} />
       <div
         ref={editorRef}
         aria-multiline="true"
         className={editorClassName}
         contentEditable
-        dangerouslySetInnerHTML={{ __html: html }}
         role="textbox"
         suppressContentEditableWarning
         onBlur={() => {
