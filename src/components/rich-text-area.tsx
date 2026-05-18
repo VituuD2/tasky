@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 
 type RichTextAreaProps = {
   name: string;
@@ -176,7 +176,7 @@ function insertPlainTextAtSelection(value: string) {
   });
 }
 
-export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
+function RichTextAreaComponent({ name, defaultValue }: RichTextAreaProps) {
   const [initialHtmlValue] = useState(() => initialHtml(defaultValue ?? ""));
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -337,3 +337,7 @@ export function RichTextArea({ name, defaultValue }: RichTextAreaProps) {
     </>
   );
 }
+
+export const RichTextArea = memo(RichTextAreaComponent, (previous, next) => {
+  return previous.name === next.name && (previous.defaultValue ?? "") === (next.defaultValue ?? "");
+});

@@ -172,10 +172,10 @@ export function ErrorReportModal({
             </label>
           </div>
 
-          <label>
-              <FieldLabel>{labelFor("description", "Descricao")}</FieldLabel>
+          <div>
+            <FieldLabel>{labelFor("description", "Descricao")}</FieldLabel>
             <RichTextArea name="description" defaultValue={report?.description} />
-          </label>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <label>
@@ -301,10 +301,10 @@ export function ErrorReportModal({
             </div>
           ) : null}
 
-          <label>
+          <div>
             <FieldLabel>{labelFor("corrective_action", "Acao corretiva")}</FieldLabel>
             <RichTextArea name="corrective_action" defaultValue={report?.corrective_action} />
-          </label>
+          </div>
 
           {message ? <StatusMessage message={message.text} tone={message.ok ? "success" : "error"} /> : null}
 
