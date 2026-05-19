@@ -178,6 +178,7 @@ function insertPlainTextAtSelection(value: string) {
 
 function RichTextAreaComponent({ name, defaultValue }: RichTextAreaProps) {
   const [initialHtmlValue] = useState(() => initialHtml(defaultValue ?? ""));
+  const [pasteMessage, setPasteMessage] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<EditorHistory>({
@@ -256,7 +257,7 @@ function RichTextAreaComponent({ name, defaultValue }: RichTextAreaProps) {
     applyHistory(isUndo ? -1 : 1);
   }
 
-  async function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
+  function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
     const imageItems = Array.from(event.clipboardData.items).filter((item) => item.type.startsWith("image/"));
     const selection = window.getSelection();
     const pasteRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
@@ -279,42 +280,7 @@ function RichTextAreaComponent({ name, defaultValue }: RichTextAreaProps) {
     }
 
     event.preventDefault();
-
-    const imageSources: string[] = [];
-
-    for (const item of imageItems) {
-      const file = item.getAsFile();
-
-      if (!file) {
-        continue;
-      }
-
-      const source = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-
-      imageSources.push(source);
-    }
-
-    if (pasteRange) {
-      restoreSelection(pasteRange);
-    }
-
-    for (const source of imageSources) {
-      const image = document.createElement("img");
-      image.src = source;
-      image.alt = "Print colado";
-      image.loading = "lazy";
-      image.dataset.taskyImage = "true";
-      image.contentEditable = "false";
-      insertNodeAtSelection(image);
-      insertNodeAtSelection(document.createElement("br"));
-    }
-
-    pushHistory(syncValue());
+    setPasteMessage("Cole imagens na secao Evidencias para salvar como anexo privado.");
   }
 
   return (
@@ -334,6 +300,7 @@ function RichTextAreaComponent({ name, defaultValue }: RichTextAreaProps) {
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
       />
+      {pasteMessage ? <p className="mt-2 text-xs text-zinc-500">{pasteMessage}</p> : null}
     </>
   );
 }

@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { parseBrazilianCurrency, parseBrazilianDate } from "@/lib/format";
 import {
+  createExternalAttachmentForReport,
+  createFileAttachmentForReport,
+} from "@/lib/supabase/attachments";
+import {
   listCustomFieldOptions,
   listCustomFields,
   listErrorReports,
@@ -31,6 +35,11 @@ function getString(formData: FormData, key: string) {
 
 function nullableString(value: string) {
   return value.length ? value : null;
+}
+
+function getOptionalFile(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return value instanceof File && value.size > 0 ? value : null;
 }
 
 function parseOptionalDate(formData: FormData, key: string) {
@@ -101,7 +110,7 @@ async function saveCustomFieldValues(
 }
 
 export async function saveErrorReport(formData: FormData): Promise<ActionResult> {
-  const { user } = await requireUser();
+  const { user, profile } = await requireUser();
   const supabase = await createClient();
 
   const id = getString(formData, "id");
@@ -232,6 +241,37 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  const initialAttachmentLink = getString(formData, "initial_attachment_url");
+  const initialAttachmentFile = getOptionalFile(formData, "initial_attachment_file");
+
+  if (initialAttachmentLink) {
+    const attachmentResult = await createExternalAttachmentForReport(
+      supabase,
+      inserted.id,
+      user.id,
+      profile,
+      initialAttachmentLink,
+    );
+
+    if (!attachmentResult.ok) {
+      return { ok: false, message: `Erro criado, mas o link nao foi anexado: ${attachmentResult.message}` };
+    }
+  }
+
+  if (initialAttachmentFile) {
+    const attachmentResult = await createFileAttachmentForReport(
+      supabase,
+      inserted.id,
+      user.id,
+      profile,
+      initialAttachmentFile,
+    );
+
+    if (!attachmentResult.ok) {
+      return { ok: false, message: `Erro criado, mas o arquivo nao foi anexado: ${attachmentResult.message}` };
+    }
   }
 
   const valuesError = await saveCustomFieldValues(supabase, inserted.id, user.id, formData, customFields);

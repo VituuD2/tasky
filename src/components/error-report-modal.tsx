@@ -19,6 +19,7 @@ import { DateInput } from "@/components/date-input";
 import { MoneyInput } from "@/components/money-input";
 import { RichTextArea } from "@/components/rich-text-area";
 import { CustomFieldControl } from "@/components/custom-field-control";
+import { AttachmentsPanel } from "@/components/attachments-panel";
 
 type ErrorReportModalProps = {
   report: ErrorReportWithRelations | null;
@@ -27,6 +28,7 @@ type ErrorReportModalProps = {
   customFields: CustomField[];
   customFieldOptions: CustomFieldOption[];
   layout: TableLayoutSetting[];
+  profile: Profile | null;
   canManageOptions: boolean;
   onClose: () => void;
   onDataChange?: () => void;
@@ -43,6 +45,7 @@ export function ErrorReportModal({
   customFields,
   customFieldOptions,
   layout,
+  profile,
   canManageOptions,
   onClose,
   onDataChange,
@@ -176,6 +179,13 @@ export function ErrorReportModal({
             <FieldLabel>{labelFor("description", "Descricao")}</FieldLabel>
             <RichTextArea name="description" defaultValue={report?.description} />
           </div>
+
+          <AttachmentsPanel
+            reportId={report?.id}
+            attachments={report?.attachments ?? []}
+            profile={profile}
+            onDataChange={onDataChange}
+          />
 
           <div className="grid gap-4 md:grid-cols-3">
             <label>

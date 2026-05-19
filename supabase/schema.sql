@@ -55,14 +55,19 @@ create table if not exists public.error_reports (
 create table if not exists public.attachments (
   id uuid primary key default gen_random_uuid(),
   error_report_id uuid not null references public.error_reports(id) on delete cascade,
+  storage_bucket text,
+  storage_path text,
   file_url text,
   external_url text,
   file_name text,
+  file_size bigint,
   mime_type text,
+  kind text not null default 'file' check (kind in ('file', 'image', 'link')),
   created_by uuid not null references public.profiles(id) on delete restrict,
   created_at timestamptz not null default now(),
+  deleted_at timestamptz,
   constraint attachments_has_location_check check (
-    file_url is not null or external_url is not null
+    storage_path is not null or file_url is not null or external_url is not null
   )
 );
 
@@ -259,13 +264,22 @@ drop policy if exists "Authenticated users can read attachments" on public.attac
 create policy "Authenticated users can read attachments"
 on public.attachments for select
 to authenticated
-using (true);
+using (deleted_at is null);
 
 drop policy if exists "Authenticated users can create attachments" on public.attachments;
 create policy "Authenticated users can create attachments"
 on public.attachments for insert
 to authenticated
-with check (created_by = auth.uid());
+with check (
+  created_by = auth.uid()
+  and deleted_at is null
+  and exists (
+    select 1
+    from public.error_reports
+    where error_reports.id = attachments.error_report_id
+      and (public.is_admin() or error_reports.created_by = auth.uid())
+  )
+);
 
 drop policy if exists "Admins and creators can update attachments" on public.attachments;
 create policy "Admins and creators can update attachments"
@@ -435,10 +449,69 @@ create index if not exists error_reports_created_by_idx on public.error_reports(
 create index if not exists error_reports_responsible_profile_id_idx on public.error_reports(responsible_profile_id);
 create index if not exists error_reports_reported_by_profile_id_idx on public.error_reports(reported_by_profile_id);
 create index if not exists attachments_error_report_id_idx on public.attachments(error_report_id);
+create index if not exists attachments_storage_path_idx on public.attachments(storage_path);
 create index if not exists select_options_type_idx on public.select_options(type, sort_order);
 create index if not exists custom_fields_table_position_idx on public.custom_fields(table_name, position);
 create index if not exists custom_field_options_field_idx on public.custom_field_options(field_id, sort_order);
 create index if not exists custom_field_values_report_idx on public.custom_field_values(error_report_id);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'tasky-attachments',
+  'tasky-attachments',
+  false,
+  10485760,
+  array['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Tasky users can read attachment objects" on storage.objects;
+create policy "Tasky users can read attachment objects"
+on storage.objects for select
+to authenticated
+using (
+  bucket_id = 'tasky-attachments'
+  and exists (
+    select 1
+    from public.attachments
+    where attachments.storage_bucket = storage.objects.bucket_id
+      and attachments.storage_path = storage.objects.name
+      and attachments.deleted_at is null
+  )
+);
+
+drop policy if exists "Tasky users can upload attachment objects" on storage.objects;
+create policy "Tasky users can upload attachment objects"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'tasky-attachments'
+  and split_part(name, '/', 1) = 'error-reports'
+  and exists (
+    select 1
+    from public.error_reports
+    where error_reports.id = nullif(split_part(name, '/', 2), '')::uuid
+      and (public.is_admin() or error_reports.created_by = auth.uid())
+  )
+);
+
+drop policy if exists "Tasky users can delete own attachment objects" on storage.objects;
+create policy "Tasky users can delete own attachment objects"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'tasky-attachments'
+  and exists (
+    select 1
+    from public.attachments
+    where attachments.storage_bucket = storage.objects.bucket_id
+      and attachments.storage_path = storage.objects.name
+      and (public.is_admin() or attachments.created_by = auth.uid())
+  )
+);
 
 -- Depois de criar a primeira conta pelo signup, rode uma vez para promover o admin inicial:
 -- update public.profiles set role = 'admin' where email = 'seu-email@empresa.com';

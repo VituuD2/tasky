@@ -8,6 +8,7 @@ export type Json =
 
 export type ProfileRole = "admin" | "user";
 export type CustomFieldType = "text" | "number" | "select" | "status" | "date" | "person" | "checkbox" | "url" | "email";
+export type AttachmentKind = "file" | "image" | "link";
 
 export type Database = {
   public: {
@@ -112,32 +113,47 @@ export type Database = {
         Row: {
           id: string;
           error_report_id: string;
+          storage_bucket: string | null;
+          storage_path: string | null;
           file_url: string | null;
           external_url: string | null;
           file_name: string | null;
+          file_size: number | null;
           mime_type: string | null;
+          kind: AttachmentKind;
           created_by: string;
           created_at: string;
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;
           error_report_id: string;
+          storage_bucket?: string | null;
+          storage_path?: string | null;
           file_url?: string | null;
           external_url?: string | null;
           file_name?: string | null;
+          file_size?: number | null;
           mime_type?: string | null;
+          kind?: AttachmentKind;
           created_by: string;
           created_at?: string;
+          deleted_at?: string | null;
         };
         Update: {
           id?: string;
           error_report_id?: string;
+          storage_bucket?: string | null;
+          storage_path?: string | null;
           file_url?: string | null;
           external_url?: string | null;
           file_name?: string | null;
+          file_size?: number | null;
           mime_type?: string | null;
+          kind?: AttachmentKind;
           created_by?: string;
           created_at?: string;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };

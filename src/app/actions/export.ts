@@ -99,11 +99,13 @@ export async function exportReports(formData: FormData): Promise<ExportResult> {
         criado_por: formatPersonName(report.created_by_profile?.full_name, report.created_by_profile?.email),
         criado_em: report.created_at,
         atualizado_em: report.updated_at,
-        anexos: report.attachments.map((attachment) => ({
-          nome: attachment.file_name,
-          url: attachment.file_url ?? attachment.external_url,
-          tipo: attachment.mime_type,
-        })),
+        anexos: report.attachments
+          .filter((attachment) => !attachment.deleted_at)
+          .map((attachment) => ({
+            nome: attachment.file_name,
+            url: attachment.file_url ?? attachment.external_url ?? attachment.storage_path,
+            tipo: attachment.mime_type,
+          })),
       };
     });
 
