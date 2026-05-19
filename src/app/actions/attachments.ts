@@ -55,7 +55,7 @@ export async function addAttachment(formData: FormData): Promise<AttachmentMutat
   return { ok: false, message: "Selecione um arquivo ou informe um link." };
 }
 
-export async function getAttachmentUrl(id: string): Promise<AttachmentUrlResult> {
+export async function getAttachmentUrl(id: string, download = false): Promise<AttachmentUrlResult> {
   await requireUser();
   const supabase = await createClient();
   const { data: attachment, error } = await supabase
@@ -86,7 +86,9 @@ export async function getAttachmentUrl(id: string): Promise<AttachmentUrlResult>
   }
 
   const bucket = attachment.storage_bucket || ATTACHMENT_BUCKET;
-  const { data, error: signedError } = await supabase.storage.from(bucket).createSignedUrl(attachment.storage_path, 300);
+  const { data, error: signedError } = await supabase.storage.from(bucket).createSignedUrl(attachment.storage_path, 300, {
+    download: download ? attachment.file_name ?? true : false,
+  });
 
   if (signedError) {
     return { ok: false, message: signedError.message };
@@ -117,17 +119,20 @@ export async function removeAttachment(id: string): Promise<ActionResult> {
     return { ok: false, message: "Sem permissao para remover este anexo." };
   }
 
-  const { error: updateError } = await supabase
-    .from("attachments")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id);
+  if (attachment.storage_path) {
+    const { error: storageError } = await supabase.storage
+      .from(attachment.storage_bucket || ATTACHMENT_BUCKET)
+      .remove([attachment.storage_path]);
 
-  if (updateError) {
-    return { ok: false, message: updateError.message };
+    if (storageError) {
+      return { ok: false, message: storageError.message };
+    }
   }
 
-  if (attachment.storage_path) {
-    await supabase.storage.from(attachment.storage_bucket || ATTACHMENT_BUCKET).remove([attachment.storage_path]);
+  const { error: deleteError } = await supabase.from("attachments").delete().eq("id", id);
+
+  if (deleteError) {
+    return { ok: false, message: deleteError.message };
   }
 
   revalidatePath("/");

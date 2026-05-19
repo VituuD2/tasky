@@ -101,15 +101,6 @@ export async function createFileAttachmentForReport(
   const attachmentId = crypto.randomUUID();
   const safeName = safeAttachmentFileName(file.name || "print.png");
   const storagePath = `error-reports/${reportId}/${attachmentId}-${safeName}`;
-  const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-
-  if (uploadError) {
-    return { ok: false, message: uploadError.message };
-  }
-
   const payload: AttachmentInsert = {
     id: attachmentId,
     error_report_id: reportId,
@@ -124,8 +115,17 @@ export async function createFileAttachmentForReport(
   const { data, error } = await supabase.from("attachments").insert(payload).select("*").single();
 
   if (error) {
-    await supabase.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
     return { ok: false, message: error.message };
+  }
+
+  const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (uploadError) {
+    await supabase.from("attachments").delete().eq("id", attachmentId);
+    return { ok: false, message: uploadError.message };
   }
 
   return { ok: true, message: "Arquivo anexado.", attachment: data };

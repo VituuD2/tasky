@@ -1,7 +1,7 @@
 "use client";
 
 import { Clipboard, Download, ExternalLink, LinkIcon, Paperclip, Trash2, Upload } from "lucide-react";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addAttachment, getAttachmentUrl, removeAttachment } from "@/app/actions/attachments";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/attachments";
 import { isAdmin } from "@/lib/permissions";
 import type { Attachment, Profile } from "@/types/tasky";
-import { FieldLabel, StatusMessage, ghostButtonClass, inputClass } from "@/components/ui";
+import { FieldLabel, StatusMessage, inputClass } from "@/components/ui";
 
 type AttachmentsPanelProps = {
   reportId?: string;
@@ -43,6 +43,7 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
     attachments.filter((attachment) => !attachment.deleted_at),
   );
   const [externalUrl, setExternalUrl] = useState("");
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +52,29 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
     [currentAttachments],
   );
   const canRemove = (attachment: Attachment) => isAdmin(profile) || attachment.created_by === profile?.id;
+
+  useEffect(() => {
+    let isMounted = true;
+    const imageAttachments = visibleAttachments.filter(
+      (attachment) => attachment.kind === "image" && !previewUrls[attachment.id],
+    );
+
+    if (!imageAttachments.length) {
+      return;
+    }
+
+    imageAttachments.forEach((attachment) => {
+      getAttachmentUrl(attachment.id).then((result) => {
+        if (isMounted && result.ok && result.url) {
+          setPreviewUrls((current) => ({ ...current, [attachment.id]: result.url ?? "" }));
+        }
+      });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [previewUrls, visibleAttachments]);
 
   function applyAttachment(attachment: Attachment) {
     setCurrentAttachments((current) => [attachment, ...current.filter((item) => item.id !== attachment.id)]);
@@ -121,26 +145,22 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
   }
 
   function openAttachment(id: string, download = false) {
+    const target = window.open("about:blank", "_blank", "noopener,noreferrer");
+
     startTransition(async () => {
-      const result = await getAttachmentUrl(id);
+      const result = await getAttachmentUrl(id, download);
 
       if (!result.ok || !result.url) {
+        target?.close();
         setMessage({ text: result.message, ok: false });
         return;
       }
 
-      if (download) {
-        const link = document.createElement("a");
-        link.href = result.url;
-        link.download = "";
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
+      if (target) {
+        target.location.href = result.url;
+      } else {
+        window.location.href = result.url;
       }
-
-      window.open(result.url, "_blank", "noopener,noreferrer");
     });
   }
 
@@ -203,9 +223,15 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
               onChange={reportId ? (event) => setExternalUrl(event.target.value) : undefined}
             />
             {reportId ? (
-              <button className={ghostButtonClass} disabled={isPending} type="button" onClick={addLink}>
-                <LinkIcon className="mr-2 inline h-4 w-4" />
-                Link
+              <button
+                aria-label="Anexar link"
+                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md border border-white/10 text-zinc-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isPending}
+                title="Anexar link"
+                type="button"
+                onClick={addLink}
+              >
+                <LinkIcon className="h-4 w-4" />
               </button>
             ) : null}
           </div>
@@ -251,52 +277,63 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
       {message ? <div className="mt-3"><StatusMessage message={message.text} tone={message.ok ? "success" : "error"} /></div> : null}
 
       {visibleAttachments.length ? (
-        <div className="mt-4 divide-y divide-white/10 rounded-md border border-white/10">
+        <div className="mt-4 space-y-3">
           {visibleAttachments.map((attachment) => (
-            <div key={attachment.id} className="grid gap-3 px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div className="min-w-0">
-                <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-stone-200">
-                  {attachment.kind === "link" ? <LinkIcon className="h-4 w-4 shrink-0 text-zinc-500" /> : <Paperclip className="h-4 w-4 shrink-0 text-zinc-500" />}
-                  <span className="truncate">{attachmentLabel(attachment)}</span>
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {attachment.kind}
-                  {attachment.mime_type ? ` - ${attachment.mime_type}` : ""}
-                  {attachment.file_size ? ` - ${formatAttachmentSize(attachment.file_size)}` : ""}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 sm:justify-end">
-                <button
-                  className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
-                  disabled={isPending}
-                  type="button"
-                  onClick={() => openAttachment(attachment.id)}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Abrir
-                </button>
-                {attachment.kind !== "link" ? (
+            <div key={attachment.id} className="rounded-md border border-white/10 bg-black/10">
+              {attachment.kind === "image" && previewUrls[attachment.id] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={attachmentLabel(attachment)}
+                  className="max-h-72 w-full rounded-t-md border-b border-white/10 object-contain"
+                  src={previewUrls[attachment.id]}
+                />
+              ) : null}
+
+              <div className="grid gap-3 px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-stone-200">
+                    {attachment.kind === "link" ? <LinkIcon className="h-4 w-4 shrink-0 text-zinc-500" /> : <Paperclip className="h-4 w-4 shrink-0 text-zinc-500" />}
+                    <span className="truncate">{attachmentLabel(attachment)}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {attachment.kind}
+                    {attachment.mime_type ? ` - ${attachment.mime_type}` : ""}
+                    {attachment.file_size ? ` - ${formatAttachmentSize(attachment.file_size)}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
                   <button
                     className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
                     disabled={isPending}
                     type="button"
-                    onClick={() => openAttachment(attachment.id, true)}
+                    onClick={() => openAttachment(attachment.id)}
                   >
-                    <Download className="h-3.5 w-3.5" />
-                    Baixar
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Abrir
                   </button>
-                ) : null}
-                {canRemove(attachment) ? (
-                  <button
-                    className="flex h-9 cursor-pointer items-center gap-1 rounded border border-red-400/15 px-2 text-xs text-red-100 hover:bg-red-500/10"
-                    disabled={isPending}
-                    type="button"
-                    onClick={() => deleteAttachment(attachment.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Remover
-                  </button>
-                ) : null}
+                  {attachment.kind !== "link" ? (
+                    <button
+                      className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
+                      disabled={isPending}
+                      type="button"
+                      onClick={() => openAttachment(attachment.id, true)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Baixar
+                    </button>
+                  ) : null}
+                  {canRemove(attachment) ? (
+                    <button
+                      className="flex h-9 cursor-pointer items-center gap-1 rounded border border-red-400/15 px-2 text-xs text-red-100 hover:bg-red-500/10"
+                      disabled={isPending}
+                      type="button"
+                      onClick={() => deleteAttachment(attachment.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remover
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           ))}

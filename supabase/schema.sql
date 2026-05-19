@@ -292,7 +292,7 @@ drop policy if exists "Admins can delete attachments" on public.attachments;
 create policy "Admins can delete attachments"
 on public.attachments for delete
 to authenticated
-using (public.is_admin());
+using (public.is_admin() or created_by = auth.uid());
 
 drop policy if exists "Authenticated users can read select options" on public.select_options;
 create policy "Authenticated users can read select options"
