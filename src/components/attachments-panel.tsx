@@ -1,6 +1,6 @@
 "use client";
 
-import { Clipboard, Download, ExternalLink, LinkIcon, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { Clipboard, Download, LinkIcon, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addAttachment, getAttachmentUrl, removeAttachment } from "@/app/actions/attachments";
 import {
@@ -191,11 +191,19 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
     });
   }
 
-  function openAttachment(id: string, download = false) {
+  function openImagePreview(attachmentId: string) {
+    const url = previewUrls[attachmentId];
+
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  function downloadAttachment(id: string) {
     const target = window.open("about:blank", "_blank", "noopener,noreferrer");
 
     startTransition(async () => {
-      const result = await getAttachmentUrl(id, download);
+      const result = await getAttachmentUrl(id, true);
 
       if (!result.ok || !result.url) {
         target?.close();
@@ -206,9 +214,13 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
       if (target) {
         target.location.href = result.url;
       } else {
-        window.location.href = result.url;
+        setMessage({ text: "Popup bloqueado. Tente novamente.", ok: false });
       }
     });
+  }
+
+  function openLinkAttachment(externalUrl: string) {
+    window.open(externalUrl, "_blank", "noopener,noreferrer");
   }
 
   function deleteAttachment(id: string) {
@@ -376,7 +388,7 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
                   alt={attachmentLabel(attachment)}
                   className="max-h-72 w-full cursor-pointer rounded-t-md border-b border-white/10 object-contain transition hover:opacity-80"
                   src={previewUrls[attachment.id]}
-                  onClick={() => openAttachment(attachment.id)}
+                  onClick={() => openImagePreview(attachment.id)}
                 />
               ) : null}
 
@@ -393,21 +405,22 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
-                  <button
-                    className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
-                    disabled={isPending}
-                    type="button"
-                    onClick={() => openAttachment(attachment.id)}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir
-                  </button>
+                  {attachment.kind === "link" && attachment.external_url ? (
+                    <button
+                      className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
+                      type="button"
+                      onClick={() => openLinkAttachment(attachment.external_url!)}
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                      Abrir link
+                    </button>
+                  ) : null}
                   {attachment.kind !== "link" ? (
                     <button
                       className="flex h-9 cursor-pointer items-center gap-1 rounded border border-white/10 px-2 text-xs text-zinc-300 hover:bg-white/[0.05]"
                       disabled={isPending}
                       type="button"
-                      onClick={() => openAttachment(attachment.id, true)}
+                      onClick={() => downloadAttachment(attachment.id)}
                     >
                       <Download className="h-3.5 w-3.5" />
                       Baixar
