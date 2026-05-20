@@ -1,7 +1,7 @@
 "use client";
 
-import { Clipboard, Download, ExternalLink, LinkIcon, Paperclip, Trash2, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Clipboard, Download, ExternalLink, LinkIcon, Paperclip, Trash2, Upload, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addAttachment, getAttachmentUrl, removeAttachment } from "@/app/actions/attachments";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
@@ -12,6 +12,12 @@ import {
 import { isAdmin } from "@/lib/permissions";
 import type { Attachment, Profile } from "@/types/tasky";
 import { FieldLabel, StatusMessage, inputClass } from "@/components/ui";
+
+type PendingFile = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
 
 type AttachmentsPanelProps = {
   reportId?: string;
@@ -47,6 +53,8 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const pendingInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const visibleAttachments = useMemo(
     () => currentAttachments.filter((attachment) => !attachment.deleted_at),
     [currentAttachments],
@@ -93,9 +101,48 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
     return true;
   }
 
+  function addPendingFile(file: File) {
+    if (!validateFile(file)) {
+      return;
+    }
+
+    const pendingId = crypto.randomUUID();
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    setPendingFiles((current) => [...current, { id: pendingId, file, previewUrl }]);
+    setMessage({ text: "Arquivo adicionado. Sera enviado ao salvar.", ok: true });
+  }
+
+  function removePendingFile(pendingId: string) {
+    setPendingFiles((current) => {
+      const removed = current.find((item) => item.id === pendingId);
+
+      if (removed?.previewUrl) {
+        URL.revokeObjectURL(removed.previewUrl);
+      }
+
+      return current.filter((item) => item.id !== pendingId);
+    });
+  }
+
+  const syncPendingInputRef = useCallback(
+    (pendingId: string, file: File) => (el: HTMLInputElement | null) => {
+      if (el && !pendingInputRefs.current.has(pendingId)) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        el.files = dataTransfer.files;
+        pendingInputRefs.current.set(pendingId, el);
+      }
+
+      if (!el) {
+        pendingInputRefs.current.delete(pendingId);
+      }
+    },
+    [],
+  );
+
   function uploadFile(file: File) {
     if (!reportId) {
-      setMessage({ text: "Salve o erro antes de anexar arquivos.", ok: false });
+      addPendingFile(file);
       return;
     }
 
@@ -179,25 +226,28 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
-    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"));
+    const imageItems = Array.from(event.clipboardData.items).filter((item) => item.type.startsWith("image/"));
 
-    if (!imageItem) {
+    if (!imageItems.length) {
       return;
     }
 
     event.preventDefault();
-    const file = imageItem.getAsFile();
 
-    if (!file) {
-      setMessage({ text: "Nao foi possivel ler a imagem colada.", ok: false });
-      return;
+    for (const imageItem of imageItems) {
+      const file = imageItem.getAsFile();
+
+      if (!file) {
+        setMessage({ text: "Nao foi possivel ler a imagem colada.", ok: false });
+        continue;
+      }
+
+      const extension = file.type === "image/jpeg" ? "jpg" : file.type.replace("image/", "");
+      const namedFile = new File([file], `print-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`, {
+        type: file.type,
+      });
+      uploadFile(namedFile);
     }
-
-    const extension = file.type === "image/jpeg" ? "jpg" : file.type.replace("image/", "");
-    const namedFile = new File([file], `print-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`, {
-      type: file.type,
-    });
-    uploadFile(namedFile);
   }
 
   return (
@@ -248,17 +298,12 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
               ref={fileInputRef}
               accept="image/png,image/jpeg,image/webp,application/pdf"
               className="min-w-0 flex-1 text-sm text-zinc-400 file:mr-3 file:h-9 file:cursor-pointer file:rounded file:border file:border-white/10 file:bg-white/[0.04] file:px-3 file:text-sm file:text-zinc-200 hover:file:bg-white/[0.06]"
-              name={reportId ? undefined : "initial_attachment_file"}
               type="file"
               onChange={(event) => {
                 const file = event.target.files?.[0];
 
-                if (reportId && file) {
+                if (file) {
                   uploadFile(file);
-                }
-
-                if (!reportId && file) {
-                  validateFile(file);
                 }
               }}
             />
@@ -269,12 +314,57 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
           </div>
           <p className="mt-2 flex items-center gap-1 text-xs text-zinc-500">
             <Clipboard className="h-3.5 w-3.5" />
-            {reportId ? "Cole um print aqui para anexar." : "Prints colados ficam disponiveis depois de salvar."}
+            Cole um print aqui para anexar.
           </p>
         </div>
       </div>
 
       {message ? <div className="mt-3"><StatusMessage message={message.text} tone={message.ok ? "success" : "error"} /></div> : null}
+
+      {pendingFiles.length ? (
+        <div className="mt-4 space-y-3">
+          <p className="text-xs font-medium text-amber-400/80">Pendentes (serao enviados ao salvar)</p>
+          {pendingFiles.map((pending, index) => (
+            <div key={pending.id} className="rounded-md border border-amber-400/20 bg-amber-500/[0.04]">
+              <input
+                ref={syncPendingInputRef(pending.id, pending.file)}
+                name={`initial_attachment_file_${index}`}
+                type="file"
+                className="hidden"
+              />
+              {pending.previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={pending.file.name}
+                  className="max-h-48 w-full rounded-t-md border-b border-amber-400/20 object-contain"
+                  src={pending.previewUrl}
+                />
+              ) : null}
+              <div className="grid gap-3 px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-stone-200">
+                    <Paperclip className="h-4 w-4 shrink-0 text-amber-400/60" />
+                    <span className="truncate">{pending.file.name}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {pending.file.type} - {formatAttachmentSize(pending.file.size)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <button
+                    className="flex h-9 cursor-pointer items-center gap-1 rounded border border-red-400/15 px-2 text-xs text-red-100 hover:bg-red-500/10"
+                    type="button"
+                    onClick={() => removePendingFile(pending.id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Remover
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {visibleAttachments.length ? (
         <div className="mt-4 space-y-3">
@@ -284,8 +374,9 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   alt={attachmentLabel(attachment)}
-                  className="max-h-72 w-full rounded-t-md border-b border-white/10 object-contain"
+                  className="max-h-72 w-full cursor-pointer rounded-t-md border-b border-white/10 object-contain transition hover:opacity-80"
                   src={previewUrls[attachment.id]}
+                  onClick={() => openAttachment(attachment.id)}
                 />
               ) : null}
 
@@ -338,11 +429,11 @@ export function AttachmentsPanel({ reportId, attachments, profile, onDataChange 
             </div>
           ))}
         </div>
-      ) : (
+      ) : !pendingFiles.length ? (
         <div className="mt-4 rounded-md border border-white/10 px-3 py-4 text-sm text-zinc-500">
           Nenhuma evidencia anexada.
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -244,7 +244,6 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
   }
 
   const initialAttachmentLink = getString(formData, "initial_attachment_url");
-  const initialAttachmentFile = getOptionalFile(formData, "initial_attachment_file");
 
   if (initialAttachmentLink) {
     const attachmentResult = await createExternalAttachmentForReport(
@@ -260,18 +259,33 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
     }
   }
 
-  if (initialAttachmentFile) {
+  const failedFiles: string[] = [];
+
+  for (let i = 0; ; i++) {
+    const file = getOptionalFile(formData, `initial_attachment_file_${i}`);
+
+    if (!file) {
+      break;
+    }
+
     const attachmentResult = await createFileAttachmentForReport(
       supabase,
       inserted.id,
       user.id,
       profile,
-      initialAttachmentFile,
+      file,
     );
 
     if (!attachmentResult.ok) {
-      return { ok: false, message: `Erro criado, mas o arquivo nao foi anexado: ${attachmentResult.message}` };
+      failedFiles.push(file.name);
     }
+  }
+
+  if (failedFiles.length) {
+    return {
+      ok: false,
+      message: `Erro criado, mas ${failedFiles.length} arquivo(s) nao foram anexados: ${failedFiles.join(", ")}`,
+    };
   }
 
   const valuesError = await saveCustomFieldValues(supabase, inserted.id, user.id, formData, customFields);
