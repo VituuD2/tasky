@@ -16,11 +16,27 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
   const [selectedType, setSelectedType] = useState<CustomFieldType | null>(null);
   const [label, setLabel] = useState("");
   const [isRequired, setIsRequired] = useState(false);
+  const [conditionalEnabled, setConditionalEnabled] = useState(false);
+  const [rules, setRules] = useState<{ field: string; operator: "equals"; value: string }[]>([]);
   const [message, setMessage] = useState("");
   const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const [isPending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const addRule = () => {
+    setRules((current) => [...current, { field: "affected_area", operator: "equals", value: "" }]);
+  };
+
+  const removeRule = (index: number) => {
+    setRules((current) => current.filter((_, i) => i !== index));
+  };
+
+  const updateRule = (index: number, key: "field" | "value", val: string) => {
+    setRules((current) =>
+      current.map((rule, i) => (i === index ? { ...rule, [key]: val } : rule))
+    );
+  };
 
   function updateMenuRect() {
     const rect = rootRef.current?.getBoundingClientRect();
@@ -93,6 +109,13 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
       formData.set("is_required", "on");
     }
 
+    if (conditionalEnabled) {
+      const activeRules = rules.filter((r) => r.value.trim() !== "");
+      if (activeRules.length > 0) {
+        formData.set("visibility_rules", JSON.stringify(activeRules));
+      }
+    }
+
     startTransition(async () => {
       const result = await createCustomField(formData);
       setMessage(result.ok ? "" : result.message);
@@ -102,6 +125,8 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
         setSelectedType(null);
         setLabel("");
         setIsRequired(false);
+        setConditionalEnabled(false);
+        setRules([]);
         onCreated();
       }
     });
@@ -158,6 +183,60 @@ export function CustomFieldMenu({ onCreated }: CustomFieldMenuProps) {
                   <input checked={isRequired} type="checkbox" onChange={(event) => setIsRequired(event.target.checked)} />
                   Campo obrigatorio
                 </label>
+                <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <input
+                    checked={conditionalEnabled}
+                    type="checkbox"
+                    onChange={(event) => {
+                      setConditionalEnabled(event.target.checked);
+                      if (event.target.checked && rules.length === 0) {
+                        setRules([{ field: "affected_area", operator: "equals", value: "" }]);
+                      }
+                    }}
+                  />
+                  Visibilidade condicional (OU)
+                </label>
+
+                {conditionalEnabled ? (
+                  <div className="space-y-2 border-t border-white/5 pt-2 max-h-48 overflow-y-auto">
+                    <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">Exibir se:</p>
+                    {rules.map((rule, index) => (
+                      <div key={index} className="flex gap-1.5 items-center">
+                        <select
+                          className="h-8 rounded border border-white/10 bg-[#161618] px-1 text-xs text-stone-200 outline-none focus:border-stone-300/40 min-w-0 flex-1"
+                          value={rule.field}
+                          onChange={(e) => updateRule(index, "field", e.target.value)}
+                        >
+                          <option value="affected_area" className="bg-[#202022]">Area afetada</option>
+                          <option value="error_type" className="bg-[#202022]">Tipo de erro</option>
+                          <option value="status" className="bg-[#202022]">Status</option>
+                        </select>
+                        <span className="text-xs text-zinc-500">=</span>
+                        <input
+                          className="h-8 min-w-0 w-24 rounded border border-white/10 bg-white/[0.04] px-2 text-xs text-stone-100 outline-none focus:border-stone-300/40"
+                          value={rule.value}
+                          onChange={(e) => updateRule(index, "value", e.target.value)}
+                          placeholder="valor"
+                        />
+                        <button
+                          type="button"
+                          className="text-xs text-zinc-500 hover:text-red-400 p-1 transition"
+                          onClick={() => removeRule(index)}
+                          title="Remover regra"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="text-xs text-zinc-400 hover:text-stone-100 hover:bg-white/[0.03] border border-dashed border-white/10 rounded py-1.5 w-full text-center transition"
+                      onClick={addRule}
+                    >
+                      + Adicionar regra (OU)
+                    </button>
+                  </div>
+                ) : null}
                 {message ? <p className="text-xs text-red-200">{message}</p> : null}
                 <button
                   className="h-9 w-full cursor-pointer rounded-md border border-white/10 bg-stone-100 px-3 text-sm font-medium text-zinc-950 transition hover:bg-white hover:shadow-[0_0_18px_rgba(244,241,234,0.16)] disabled:cursor-not-allowed disabled:opacity-60"

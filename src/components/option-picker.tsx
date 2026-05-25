@@ -17,6 +17,7 @@ type OptionPickerProps = {
   required?: boolean;
   canManage?: boolean;
   onOptionsChange?: (options: SelectOption[]) => void;
+  onChange?: (value: string) => void;
 };
 
 function CrossIcon() {
@@ -36,6 +37,7 @@ export function OptionPicker({
   required,
   canManage,
   onOptionsChange,
+  onChange,
 }: OptionPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value ?? "");
@@ -201,6 +203,7 @@ export function OptionPicker({
         ]);
         setSelectedValue(valueForOption);
         setDraftLabel("");
+        onChange?.(valueForOption);
       }
     });
   }
@@ -256,6 +259,7 @@ export function OptionPicker({
                       onClick={() => {
                         setSelectedValue(option.value);
                         setIsOpen(false);
+                        onChange?.(option.value);
                       }}
                     >
                       <span

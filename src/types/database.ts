@@ -263,6 +263,7 @@ export type Database = {
           position: number;
           created_by: string | null;
           updated_by: string | null;
+          visibility_rules: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -278,6 +279,7 @@ export type Database = {
           position?: number;
           created_by?: string | null;
           updated_by?: string | null;
+          visibility_rules?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -293,6 +295,7 @@ export type Database = {
           position?: number;
           created_by?: string | null;
           updated_by?: string | null;
+          visibility_rules?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

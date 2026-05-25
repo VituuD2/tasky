@@ -27,6 +27,7 @@ import type {
   SelectOption,
   TableLayoutSetting,
 } from "@/types/tasky";
+import { parseVisibilityRules, evaluateVisibility } from "@/lib/visibility";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -88,9 +89,14 @@ async function saveCustomFieldValues(
   userId: string,
   formData: FormData,
   customFields: CustomField[],
+  formValuesForVisibility: Record<string, string>,
 ) {
   for (const field of customFields) {
-    const value = nullableString(getString(formData, `custom_field_${field.id}`));
+    const rules = parseVisibilityRules(field.visibility_rules);
+    const isVisible = evaluateVisibility(rules, formValuesForVisibility);
+
+    const value = isVisible ? nullableString(getString(formData, `custom_field_${field.id}`)) : null;
+
     const { error } = await supabase.from("custom_field_values").upsert(
       {
         error_report_id: reportId,
@@ -160,7 +166,20 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
     return { ok: false, message: "A data de resolução não pode ser anterior à abertura." };
   }
 
+  const formValuesForVisibility = {
+    affected_area: affectedArea,
+    error_type: errorType,
+    status: status,
+  };
+
   for (const field of customFields) {
+    const rules = parseVisibilityRules(field.visibility_rules);
+    const isVisible = evaluateVisibility(rules, formValuesForVisibility);
+
+    if (!isVisible) {
+      continue;
+    }
+
     const value = getString(formData, `custom_field_${field.id}`);
 
     if (field.is_required && !value) {
@@ -216,7 +235,14 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
       return { ok: false, message: error.message };
     }
 
-    const valuesError = await saveCustomFieldValues(supabase, id, user.id, formData, customFields);
+    const valuesError = await saveCustomFieldValues(
+      supabase,
+      id,
+      user.id,
+      formData,
+      customFields,
+      formValuesForVisibility,
+    );
 
     if (valuesError) {
       return { ok: false, message: valuesError };
@@ -288,7 +314,14 @@ export async function saveErrorReport(formData: FormData): Promise<ActionResult>
     };
   }
 
-  const valuesError = await saveCustomFieldValues(supabase, inserted.id, user.id, formData, customFields);
+  const valuesError = await saveCustomFieldValues(
+    supabase,
+    inserted.id,
+    user.id,
+    formData,
+    customFields,
+    formValuesForVisibility,
+  );
 
   if (valuesError) {
     return { ok: false, message: valuesError };

@@ -17,6 +17,12 @@ export type CustomFieldOption = Database["public"]["Tables"]["custom_field_optio
 export type CustomFieldValue = Database["public"]["Tables"]["custom_field_values"]["Row"];
 export type CustomFieldType = Database["public"]["Tables"]["custom_fields"]["Row"]["field_type"];
 
+export type VisibilityRule = {
+  field: string;
+  operator: "equals";
+  value: string;
+};
+
 export type OptionType = "affected_area" | "error_type" | "severity" | "status" | "happened_before";
 
 export type ErrorReportWithRelations = ErrorReport & {

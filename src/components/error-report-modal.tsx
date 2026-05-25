@@ -20,6 +20,7 @@ import { MoneyInput } from "@/components/money-input";
 import { RichTextArea } from "@/components/rich-text-area";
 import { CustomFieldControl } from "@/components/custom-field-control";
 import { AttachmentsPanel } from "@/components/attachments-panel";
+import { parseVisibilityRules, evaluateVisibility } from "@/lib/visibility";
 
 type ErrorReportModalProps = {
   report: ErrorReportWithRelations | null;
@@ -58,6 +59,25 @@ export function ErrorReportModal({
   const [reportedByMode, setReportedByMode] = useState(
     report?.reported_by_name ? "__create" : report?.reported_by_profile_id ?? "",
   );
+  const [formValues, setFormValues] = useState<Record<string, string>>({
+    affected_area: report?.affected_area ?? "",
+    error_type: report?.error_type ?? "",
+    status: report?.status ?? "",
+  });
+
+  const visibleCustomFields = useMemo(() => {
+    return customFields.filter((field) => {
+      const rules = parseVisibilityRules(field.visibility_rules);
+      return evaluateVisibility(rules, formValues);
+    });
+  }, [customFields, formValues]);
+
+  const handleFieldValueChange = (fieldKey: string, val: string) => {
+    setFormValues((current) => ({
+      ...current,
+      [fieldKey]: val,
+    }));
+  };
 
   const groupedOptions = useMemo(
     () => ({
@@ -198,6 +218,7 @@ export function ErrorReportModal({
                 required
                 canManage={canManageOptions}
                 onOptionsChange={setLocalOptions}
+                onChange={(val) => handleFieldValueChange("affected_area", val)}
               />
             </label>
             <label>
@@ -210,6 +231,7 @@ export function ErrorReportModal({
                 required
                 canManage={canManageOptions}
                 onOptionsChange={setLocalOptions}
+                onChange={(val) => handleFieldValueChange("error_type", val)}
               />
             </label>
             <label>
@@ -237,6 +259,7 @@ export function ErrorReportModal({
                 required
                 canManage={canManageOptions}
                 onOptionsChange={setLocalOptions}
+                onChange={(val) => handleFieldValueChange("status", val)}
               />
             </label>
             <label>
@@ -290,9 +313,9 @@ export function ErrorReportModal({
             </label>
           ) : null}
 
-          {customFields.length ? (
+          {visibleCustomFields.length ? (
             <div className="grid gap-4 md:grid-cols-2">
-              {customFields.map((field) => (
+              {visibleCustomFields.map((field) => (
                 <label key={field.id}>
                   <FieldLabel>
                     {field.label}

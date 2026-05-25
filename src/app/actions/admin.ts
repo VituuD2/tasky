@@ -145,6 +145,16 @@ export async function createCustomField(formData: FormData): Promise<ActionResul
   const label = getString(formData, "label");
   const fieldType = getString(formData, "field_type") as CustomFieldType;
   const isRequired = formData.get("is_required") === "on";
+  const visibilityRulesRaw = getString(formData, "visibility_rules");
+
+  let visibilityRules = null;
+  if (visibilityRulesRaw) {
+    try {
+      visibilityRules = JSON.parse(visibilityRulesRaw);
+    } catch {
+      return { ok: false, message: "Regras de visibilidade invalidas." };
+    }
+  }
 
   if (!label) {
     return { ok: false, message: "Nome obrigatorio." };
@@ -181,6 +191,7 @@ export async function createCustomField(formData: FormData): Promise<ActionResul
     field_type: fieldType,
     is_required: isRequired,
     position: nextPosition,
+    visibility_rules: visibilityRules,
     created_by: user.id,
     updated_by: user.id,
   });

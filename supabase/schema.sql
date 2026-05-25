@@ -117,6 +117,7 @@ create table if not exists public.custom_fields (
   position integer not null default 1000,
   created_by uuid references public.profiles(id) on delete set null,
   updated_by uuid references public.profiles(id) on delete set null,
+  visibility_rules jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (table_name, field_key)
@@ -515,3 +516,46 @@ using (
 
 -- Depois de criar a primeira conta pelo signup, rode uma vez para promover o admin inicial:
 -- update public.profiles set role = 'admin' where email = 'seu-email@empresa.com';
+
+-- Seed para o campo Marketplace
+INSERT INTO public.custom_fields (table_name, label, field_key, field_type, is_required, is_active, width, position, visibility_rules)
+VALUES (
+  'error_reports',
+  'Marketplace',
+  'marketplace',
+  'select',
+  true,
+  true,
+  180,
+  1010,
+  '[{"field":"affected_area","operator":"equals","value":"marketplace"},{"field":"error_type","operator":"equals","value":"terceiros"}]'::jsonb
+)
+ON CONFLICT (table_name, field_key) DO UPDATE
+SET visibility_rules = EXCLUDED.visibility_rules,
+    is_required = EXCLUDED.is_required,
+    is_active = true;
+
+-- Criar as opções do campo Marketplace
+DO $$
+DECLARE
+  field_uuid uuid;
+BEGIN
+  SELECT id INTO field_uuid FROM public.custom_fields WHERE field_key = 'marketplace' AND table_name = 'error_reports';
+
+  INSERT INTO public.custom_field_options (field_id, label, value, color, sort_order)
+  VALUES
+    (field_uuid, 'Shopee 1',          'shopee_1',          '#ee4d2d', 10),
+    (field_uuid, 'Shopee 2',          'shopee_2',          '#d4452a', 20),
+    (field_uuid, 'SoulBM',            'soulbm',            '#6b7280', 30),
+    (field_uuid, 'Mercado Livre 1',   'mercado_livre_1',   '#ffe600', 40),
+    (field_uuid, 'Mercado Livre 2',   'mercado_livre_2',   '#d4bf00', 50),
+    (field_uuid, 'Mercado Livre 3',   'mercado_livre_3',   '#b3a200', 60),
+    (field_uuid, 'Magalu',            'magalu',            '#0086ff', 70),
+    (field_uuid, 'Shein',             'shein',             '#111111', 80),
+    (field_uuid, 'Venda direta',      'venda_direta',      '#5d8a6b', 90)
+  ON CONFLICT (field_id, value) DO UPDATE
+  SET label = EXCLUDED.label,
+      color = EXCLUDED.color,
+      sort_order = EXCLUDED.sort_order;
+END $$;
+
