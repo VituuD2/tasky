@@ -52,7 +52,6 @@ export function ErrorReportModal({
   onDataChange,
 }: ErrorReportModalProps) {
   const [localOptions, setLocalOptions] = useState(options);
-  const [localCustomFieldOptions, setLocalCustomFieldOptions] = useState(customFieldOptions);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -323,11 +322,9 @@ export function ErrorReportModal({
                   </FieldLabel>
                   <CustomFieldControl
                     field={field}
-                    options={localCustomFieldOptions}
+                    options={customFieldOptions}
                     profiles={profiles}
                     value={customValueMap.get(field.id)}
-                    canManageOptions={canManageOptions}
-                    onOptionsChange={setLocalCustomFieldOptions}
                   />
                 </label>
               ))}
