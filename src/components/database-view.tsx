@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, RefreshCw } from "lucide-react";
+import { GripVertical, RefreshCw, Pencil } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { formatCurrency, formatDate, formatPersonName } from "@/lib/format";
 import { buildOptionMap } from "@/lib/options";
@@ -15,10 +15,11 @@ import type {
 import { EmptyState, buttonClass } from "@/components/ui";
 import { ErrorReportModal } from "@/components/error-report-modal";
 import { OptionTag } from "@/components/option-tag";
-import { reorderColumns, updateColumnLabel, updateColumnWidth } from "@/app/actions/admin";
+import { reorderColumns, updateColumnWidth } from "@/app/actions/admin";
 import { getDatabaseSnapshot } from "@/app/actions/error-reports";
 import { isAdmin } from "@/lib/permissions";
 import { CustomFieldMenu } from "@/components/custom-field-menu";
+import { ColumnSettingsMenu, type DisplayColumn } from "@/components/column-settings-menu";
 
 type DatabaseViewProps = {
   reports: ErrorReportWithRelations[];
@@ -30,9 +31,7 @@ type DatabaseViewProps = {
   profile: Profile | null;
 };
 
-type DisplayColumn =
-  | { kind: "standard"; id: string; key: string; label: string; width: number; position: number }
-  | { kind: "custom"; id: string; key: string; label: string; width: number; position: number; field: CustomField };
+
 
 function cellValue(report: ErrorReportWithRelations, key: string, optionMap: Map<string, SelectOption>) {
   switch (key) {
@@ -115,8 +114,8 @@ export function DatabaseView({
   const [currentCustomFields, setCurrentCustomFields] = useState(customFields);
   const [currentCustomFieldOptions, setCurrentCustomFieldOptions] = useState(customFieldOptions);
   const [openReport, setOpenReport] = useState<ErrorReportWithRelations | null | "new">(null);
-  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
-  const [editingLabel, setEditingLabel] = useState("");
+  const [activeSettingsColumn, setActiveSettingsColumn] = useState<DisplayColumn | null>(null);
+  const [settingsAnchorElement, setSettingsAnchorElement] = useState<HTMLElement | null>(null);
   const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
@@ -239,28 +238,7 @@ export function DatabaseView({
     };
   }, []);
 
-  async function saveColumnLabel(column: DisplayColumn) {
-    const nextLabel = editingLabel.trim();
-    setEditingColumnId(null);
 
-    if (!nextLabel || nextLabel === column.label) {
-      return;
-    }
-
-    const result = await updateColumnLabel(column.kind, column.id, nextLabel);
-
-    if (result.ok) {
-      if (column.kind === "standard") {
-        setCurrentLayout((current) =>
-          current.map((item) => (item.id === column.id ? { ...item, column_label: nextLabel } : item)),
-        );
-      } else {
-        setCurrentCustomFields((current) =>
-          current.map((item) => (item.id === column.id ? { ...item, label: nextLabel } : item)),
-        );
-      }
-    }
-  }
 
   function moveColumn(targetId: string) {
     if (!draggingColumnId || draggingColumnId === targetId) {
@@ -351,40 +329,23 @@ export function DatabaseView({
                   {hasAdminAccess ? (
                     <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-zinc-600 active:cursor-grabbing" />
                   ) : null}
-                  {editingColumnId === column.id ? (
-                    <input
-                      autoFocus
-                      className="h-6 min-w-0 flex-1 rounded border border-white/10 bg-white/[0.06] px-1 text-xs text-stone-100 outline-none"
-                      value={editingLabel}
-                      onChange={(event) => setEditingLabel(event.target.value)}
-                      onBlur={() => void saveColumnLabel(column)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.currentTarget.blur();
-                        }
-
-                        if (event.key === "Escape") {
-                          setEditingColumnId(null);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <button
-                      className="min-w-0 truncate text-left"
-                      disabled={!hasAdminAccess}
-                      type="button"
-                      onClick={() => {
-                        if (!hasAdminAccess) {
-                          return;
-                        }
-
-                        setEditingColumnId(column.id);
-                        setEditingLabel(column.label);
-                      }}
-                    >
-                      {column.label}
-                    </button>
-                  )}
+                  <button
+                    className="group/btn inline-flex items-center gap-1.5 min-w-0 max-w-full truncate text-left"
+                    disabled={!hasAdminAccess}
+                    type="button"
+                    onClick={(event) => {
+                      if (!hasAdminAccess) {
+                        return;
+                      }
+                      setActiveSettingsColumn(column);
+                      setSettingsAnchorElement(event.currentTarget as HTMLElement);
+                    }}
+                  >
+                    <span className="truncate">{column.label}</span>
+                    {hasAdminAccess ? (
+                      <Pencil className="h-3 w-3 shrink-0 text-zinc-600 transition group-hover/btn:text-stone-200" />
+                    ) : null}
+                  </button>
                   {hasAdminAccess ? (
                     <div
                       aria-label={`Redimensionar ${column.label}`}
@@ -443,6 +404,19 @@ export function DatabaseView({
           canManageOptions={hasAdminAccess}
           onClose={() => setOpenReport(null)}
           onDataChange={refreshData}
+        />
+      ) : null}
+
+      {activeSettingsColumn && settingsAnchorElement ? (
+        <ColumnSettingsMenu
+          column={activeSettingsColumn}
+          anchorElement={settingsAnchorElement}
+          customFieldOptions={currentCustomFieldOptions}
+          onClose={() => {
+            setActiveSettingsColumn(null);
+            setSettingsAnchorElement(null);
+          }}
+          onChanged={refreshData}
         />
       ) : null}
     </>

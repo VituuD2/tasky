@@ -256,38 +256,148 @@ export async function reorderColumns(
 export async function saveCustomFieldOption(formData: FormData): Promise<ActionResult> {
   await requireAdmin();
   const supabase = await createClient();
+  const id = getString(formData, "id");
   const fieldId = getString(formData, "field_id");
   const label = getString(formData, "label");
   const color = getString(formData, "color") || "#8f949b";
+  const isActive = formData.get("is_active") === null ? true : formData.get("is_active") === "on";
 
-  if (!fieldId || !label) {
-    return { ok: false, message: "Opcao invalida." };
+  if (id) {
+    const payload: {
+      color: string;
+      is_active: boolean;
+      label?: string;
+      value?: string;
+    } = {
+      color,
+      is_active: isActive,
+    };
+    if (label) {
+      payload.label = label;
+      payload.value = getString(formData, "value") || toOptionValue(label);
+    }
+    const { error } = await supabase.from("custom_field_options").update(payload).eq("id", id);
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+    revalidatePath("/");
+    return { ok: true, message: "Opcao atualizada." };
+  } else {
+    if (!fieldId || !label) {
+      return { ok: false, message: "Opcao invalida." };
+    }
+
+    const { data: options, error: optionsError } = await supabase
+      .from("custom_field_options")
+      .select("sort_order")
+      .eq("field_id", fieldId);
+
+    if (optionsError) {
+      return { ok: false, message: optionsError.message };
+    }
+
+    const { error } = await supabase.from("custom_field_options").insert({
+      field_id: fieldId,
+      label,
+      value: getString(formData, "value") || toOptionValue(label),
+      color,
+      sort_order: Math.max(0, ...(options ?? []).map((option) => option.sort_order)) + 10,
+      is_active: true,
+    });
+
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+
+    revalidatePath("/");
+    return { ok: true, message: "Opcao criada." };
+  }
+}
+
+export async function deleteCustomFieldOption(optionId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  if (!optionId) {
+    return { ok: false, message: "Opção inválida." };
   }
 
-  const { data: options, error: optionsError } = await supabase
-    .from("custom_field_options")
-    .select("sort_order")
-    .eq("field_id", fieldId);
-
-  if (optionsError) {
-    return { ok: false, message: optionsError.message };
-  }
-
-  const { error } = await supabase.from("custom_field_options").insert({
-    field_id: fieldId,
-    label,
-    value: getString(formData, "value") || toOptionValue(label),
-    color,
-    sort_order: Math.max(0, ...(options ?? []).map((option) => option.sort_order)) + 10,
-    is_active: true,
-  });
+  const { error } = await supabase.from("custom_field_options").delete().eq("id", optionId);
 
   if (error) {
     return { ok: false, message: error.message };
   }
 
   revalidatePath("/");
-  return { ok: true, message: "Opcao criada." };
+  return { ok: true, message: "Opção excluída." };
+}
+
+export async function updateCustomField(formData: FormData): Promise<ActionResult> {
+  const { user } = await requireAdmin();
+  const supabase = await createClient();
+  const id = getString(formData, "id");
+  const label = getString(formData, "label");
+  const fieldType = getString(formData, "field_type") as CustomFieldType;
+  const isRequired = formData.get("is_required") === "on";
+  const visibilityRulesRaw = getString(formData, "visibility_rules");
+
+  if (!id) {
+    return { ok: false, message: "ID do campo inválido." };
+  }
+
+  if (!label) {
+    return { ok: false, message: "Nome obrigatorio." };
+  }
+
+  if (!CUSTOM_FIELD_TYPES.has(fieldType)) {
+    return { ok: false, message: "Tipo de campo invalido." };
+  }
+
+  let visibilityRules = null;
+  if (visibilityRulesRaw) {
+    try {
+      visibilityRules = JSON.parse(visibilityRulesRaw);
+    } catch {
+      return { ok: false, message: "Regras de visibilidade invalidas." };
+    }
+  }
+
+  const { error } = await supabase
+    .from("custom_fields")
+    .update({
+      label,
+      field_type: fieldType,
+      is_required: isRequired,
+      visibility_rules: visibilityRules,
+      updated_by: user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Campo atualizado." };
+}
+
+export async function deleteCustomField(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  if (!id) {
+    return { ok: false, message: "ID do campo inválido." };
+  }
+
+  const { error } = await supabase.from("custom_fields").delete().eq("id", id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/");
+  return { ok: true, message: "Campo excluído." };
 }
 
 export async function resetLayoutSettings(): Promise<ActionResult> {
