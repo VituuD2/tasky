@@ -412,6 +412,8 @@ export function DatabaseView({
           column={activeSettingsColumn}
           anchorElement={settingsAnchorElement}
           customFieldOptions={currentCustomFieldOptions}
+          selectOptions={currentOptions}
+          profiles={currentProfiles}
           onClose={() => {
             setActiveSettingsColumn(null);
             setSettingsAnchorElement(null);
