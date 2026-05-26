@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, RefreshCw, Pencil } from "lucide-react";
+import { GripVertical, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { formatCurrency, formatDate, formatPersonName } from "@/lib/format";
 import { buildOptionMap } from "@/lib/options";
@@ -330,10 +330,10 @@ export function DatabaseView({
                     <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-zinc-600 active:cursor-grabbing" />
                   ) : null}
                   <button
-                    className="group/btn inline-flex items-center gap-1.5 min-w-0 max-w-full truncate text-left"
+                    className="min-w-0 max-w-full truncate text-left focus:outline-none"
                     disabled={!hasAdminAccess}
                     type="button"
-                    onClick={(event) => {
+                    onDoubleClick={(event) => {
                       if (!hasAdminAccess) {
                         return;
                       }
@@ -342,9 +342,6 @@ export function DatabaseView({
                     }}
                   >
                     <span className="truncate">{column.label}</span>
-                    {hasAdminAccess ? (
-                      <Pencil className="h-3 w-3 shrink-0 text-zinc-600 transition group-hover/btn:text-stone-200" />
-                    ) : null}
                   </button>
                   {hasAdminAccess ? (
                     <div

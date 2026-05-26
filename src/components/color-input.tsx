@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ColorInputProps = {
   value: string;
@@ -9,7 +9,31 @@ type ColorInputProps = {
 };
 
 export function ColorInput({ value, label, onChange }: ColorInputProps) {
+  const [localValue, setLocalValue] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync state with prop updates during render (derived state pattern)
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setLocalValue(value);
+  }
+
+  // Handle native "change" commit event (mouse release / close dialog)
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    function handleCommit(event: Event) {
+      const target = event.target as HTMLInputElement;
+      onChange(target.value);
+    }
+
+    input.addEventListener("change", handleCommit);
+    return () => {
+      input.removeEventListener("change", handleCommit);
+    };
+  }, [onChange]);
 
   return (
     <button
@@ -19,15 +43,15 @@ export function ColorInput({ value, label, onChange }: ColorInputProps) {
       onClick={() => inputRef.current?.click()}
     >
       <span className="pointer-events-none flex h-full w-full items-center justify-center">
-        <span className="block h-4 w-4 rounded-sm border border-black/20" style={{ backgroundColor: value }} />
+        <span className="block h-4 w-4 rounded-sm border border-black/20" style={{ backgroundColor: localValue }} />
       </span>
       <input
         ref={inputRef}
         className="absolute pointer-events-none opacity-0"
         style={{ width: "1px", height: "1px", overflow: "hidden", left: "0", top: "0" }}
         type="color"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
+        value={localValue}
+        onChange={(event) => setLocalValue(event.target.value)}
       />
     </button>
   );
