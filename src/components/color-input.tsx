@@ -8,20 +8,12 @@ type ColorInputProps = {
 
 export function ColorInput({ value, label, onChange }: ColorInputProps) {
   return (
-    <div className="group relative h-7 w-8">
-      <span
-        aria-hidden
-        className="pointer-events-none flex h-7 w-8 items-center justify-center rounded border border-white/10 bg-white/[0.035] transition group-hover:border-white/20 group-hover:bg-white/[0.06] group-focus-within:border-stone-300/40"
-      >
-        <span className="block h-4 w-4 rounded-sm border border-black/20" style={{ backgroundColor: value }} />
-      </span>
-      <input
-        aria-label={label}
-        className="absolute inset-0 h-7 w-8 cursor-pointer rounded opacity-0"
-        type="color"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </div>
+    <input
+      aria-label={label}
+      type="color"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-7 w-8 cursor-pointer rounded border border-white/10 bg-transparent p-0 focus:outline-none focus:border-stone-300/40 hover:border-white/20 transition-all [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[2px] [&::-moz-color-swatch]:border-none [&::-moz-color-swatch]:rounded-[2px]"
+    />
   );
 }
